@@ -440,12 +440,8 @@ end
 
 --==================================================
 -- ESTELA: TIME LERP + GET COLOR DISTANCE
--- SEIS ESTADOS / 0.20 SEGUNDOS
+-- ALTERNANCIA CONSTANTE BLANCO / COLOR
 --==================================================
-
-local TRAIL_DURATION = 0.20
-local COLOR_STEPS = 6
-local STEP_DURATION = TRAIL_DURATION / COLOR_STEPS
 
 local function AnimateTrail(beam, selectedColor)
 
@@ -464,31 +460,21 @@ local function AnimateTrail(beam, selectedColor)
     StopTrail(beam)
 
     local colors = {
-        selectedColor,
         WHITE,
-        selectedColor,
-        WHITE,
-        selectedColor,
-        WHITE
+        selectedColor
     }
 
     local index = 1
-    local currentColor = WHITE
-    local targetColor = colors[index]
-
-    local animationStart = os.clock()
-    local stepStart = animationStart
+    local currentColor = colors[1]
+    local targetColor = colors[2]
+    local lastUpdate = os.clock() - 1
 
     local connection
 
-    -- INTERPOLACION TEMPORAL
     local function TimeLerp(p1, p2, p3)
-
-        return p1 + (p2 - p1) * math.min(p3, 1)
-
+        return p1 + (p2 - p1) * math.min(p3 / 1, 1)
     end
 
-    -- DISTANCIA ENTRE COLORES
     local function GetColorDistance(color)
 
         local r = color.R - targetColor.R
@@ -518,34 +504,12 @@ local function AnimateTrail(beam, selectedColor)
             return
         end
 
-        local now = os.clock()
-
-        if now - animationStart >= TRAIL_DURATION then
-            StopTrail(beam)
-            return
-        end
-
-        local elapsed = now - stepStart
-        local alpha = math.min(elapsed / STEP_DURATION, 1)
+        local elapsed = os.clock() - lastUpdate
 
         local nextColor = {
-            R = TimeLerp(
-                currentColor.R,
-                targetColor.R,
-                alpha
-            ),
-
-            G = TimeLerp(
-                currentColor.G,
-                targetColor.G,
-                alpha
-            ),
-
-            B = TimeLerp(
-                currentColor.B,
-                targetColor.B,
-                alpha
-            )
+            R = TimeLerp(currentColor.R, targetColor.R, elapsed),
+            G = TimeLerp(currentColor.G, targetColor.G, elapsed),
+            B = TimeLerp(currentColor.B, targetColor.B, elapsed)
         }
 
         local color = Color3.new(
@@ -554,21 +518,21 @@ local function AnimateTrail(beam, selectedColor)
             nextColor.B
         )
 
-        beam.Color = ColorSequence.new(color)
+        if GetColorDistance(color) <= 0.01 then
 
-        if GetColorDistance(color) <= 0.01
-            or elapsed >= STEP_DURATION then
-
-            currentColor = targetColor
             index += 1
 
-            if colors[index] then
-                targetColor = colors[index]
+            if not colors[index] then
+                index = 1
             end
 
-            stepStart = now
+            currentColor = targetColor
+            targetColor = colors[index]
+            lastUpdate = os.clock()
 
         end
+
+        beam.Color = ColorSequence.new(color)
 
     end)
 
