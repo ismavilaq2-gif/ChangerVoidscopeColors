@@ -439,9 +439,11 @@ local function RestoreOriginal()
 end
 
 --==================================================
--- ESTELA: TIME LERP + GET COLOR DISTANCE
--- ALTERNANCIA CONSTANTE BLANCO / COLOR
+-- ESTELA: ALTERNANCIA CONSTANTE
+-- 0.033 SEGUNDOS POR COLOR
 --==================================================
+
+local TRAIL_COLOR_INTERVAL = 0.033
 
 local function AnimateTrail(beam, selectedColor)
 
@@ -449,11 +451,7 @@ local function AnimateTrail(beam, selectedColor)
         return
     end
 
-    if not beam or not beam.Parent then
-        return
-    end
-
-    if not selectedColor then
+    if not beam or not beam.Parent or not selectedColor then
         return
     end
 
@@ -465,29 +463,9 @@ local function AnimateTrail(beam, selectedColor)
     }
 
     local index = 1
-    local currentColor = colors[1]
-    local targetColor = colors[2]
-    local lastUpdate = os.clock() - 1
+    local lastUpdate = os.clock()
 
     local connection
-
-    local function TimeLerp(p1, p2, p3)
-        return p1 + (p2 - p1) * math.min(p3 / 1, 1)
-    end
-
-    local function GetColorDistance(color)
-
-        local r = color.R - targetColor.R
-        local g = color.G - targetColor.G
-        local b = color.B - targetColor.B
-
-        return math.sqrt(
-            r * r +
-            g * g +
-            b * b
-        )
-
-    end
 
     connection = RunService.PostSimulation:Connect(function()
 
@@ -504,35 +482,16 @@ local function AnimateTrail(beam, selectedColor)
             return
         end
 
-        local elapsed = os.clock() - lastUpdate
+        local now = os.clock()
 
-        local nextColor = {
-            R = TimeLerp(currentColor.R, targetColor.R, elapsed),
-            G = TimeLerp(currentColor.G, targetColor.G, elapsed),
-            B = TimeLerp(currentColor.B, targetColor.B, elapsed)
-        }
+        if now - lastUpdate >= TRAIL_COLOR_INTERVAL then
 
-        local color = Color3.new(
-            nextColor.R,
-            nextColor.G,
-            nextColor.B
-        )
-
-        if GetColorDistance(color) <= 0.01 then
-
-            index += 1
-
-            if not colors[index] then
-                index = 1
-            end
-
-            currentColor = targetColor
-            targetColor = colors[index]
-            lastUpdate = os.clock()
+            index = index % 2 + 1
+            lastUpdate = now
 
         end
 
-        beam.Color = ColorSequence.new(color)
+        beam.Color = ColorSequence.new(colors[index])
 
     end)
 
