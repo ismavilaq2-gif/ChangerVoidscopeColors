@@ -1,7 +1,7 @@
 
 --==================================================
--- VOIDSCOPE CHANGER
--- VERSION: 2.1
+-- VOIDSCOPE CHANGER 2.0
+-- VERSION ORIGINAL CON CORRECCIONES
 --==================================================
 
 local Players = game:GetService("Players")
@@ -21,29 +21,28 @@ local BLACK = Color3.fromRGB(0, 0, 0)
 local TRAIL_DURATION = 0.20
 local STEP_DURATION = TRAIL_DURATION / 6
 
--- REGISTROS DE OBJETOS VERIFICADOS
+-- REGISTROS
 local VerifiedObjects = {}
 local OriginalStates = {}
 local ConnectedTools = {}
 local AnimationTokens = {}
 
 local DesignEnabled = false
+local MenuVisible = true
+local Minimized = false
 
 --==================================================
--- VERIFICACION DE VOIDSCOPE
+-- IDENTIFICACION DE VOIDSCOPE
 --==================================================
 
-local function IsVerified(object)
-    if not object then
+local function IsVerifiedMesh(object)
+    if not object or not object:IsA("MeshPart") then
         return false
     end
 
+    -- Ya fue comprobado antes de cambiar su textura.
     if VerifiedObjects[object] then
         return true
-    end
-
-    if not object:IsA("MeshPart") then
-        return false
     end
 
     if object.TextureID ~= ORIGINAL_ID then
@@ -65,11 +64,11 @@ local function VerifyGun(tool)
 
     local handle = tool:FindFirstChild("Handle")
 
-    if not handle or not handle:IsA("MeshPart") then
+    if not handle or not IsVerifiedMesh(handle) then
         return false
     end
 
-    return IsVerified(handle)
+    return true
 end
 
 local function VerifyDisplay(display)
@@ -77,11 +76,11 @@ local function VerifyDisplay(display)
         return false
     end
 
-    return IsVerified(display)
+    return IsVerifiedMesh(display)
 end
 
 --==================================================
--- LOCALIZAR CUSTOMBEAM
+-- LOCALIZAR OBJETOS
 --==================================================
 
 local function GetBeam(object)
@@ -89,18 +88,17 @@ local function GetBeam(object)
         return nil
     end
 
-    local beam
+    local parent = object
 
     if object:IsA("Tool") then
-        local handle = object:FindFirstChild("Handle")
-        if not handle then
-            return nil
-        end
-
-        beam = handle:FindFirstChild("CustomBeam", true)
-    else
-        beam = object:FindFirstChild("CustomBeam", true)
+        parent = object:FindFirstChild("Handle")
     end
+
+    if not parent then
+        return nil
+    end
+
+    local beam = parent:FindFirstChild("CustomBeam", true)
 
     if beam and beam:IsA("Beam") then
         return beam
@@ -162,7 +160,7 @@ end
 --==================================================
 
 local function ApplyObject(object)
-    if not IsVerified(object) then
+    if not IsVerifiedMesh(object) then
         return false
     end
 
@@ -186,42 +184,83 @@ local function ApplyGun(tool)
 
     local handle = tool:FindFirstChild("Handle")
 
-    if not handle then
-        return false
-    end
-
     return ApplyObject(handle)
 end
 
-local function ApplyDisplays()
+--==================================================
+-- VERIFICAR GUNDISPLAY
+--==================================================
+
+local function GetVerifiedDisplays()
+    local results = {}
+
     local folder = workspace:FindFirstChild("WeaponDisplays")
 
     if not folder then
-        return 0
+        return results
     end
 
+    for _, object in ipairs(folder:GetDescendants()) do
+        if VerifyDisplay(object) then
+            table.insert(results, object)
+        end
+    end
+
+    return results
+end
+
+local function ApplyDisplays()
+    local displays = GetVerifiedDisplays()
     local count = 0
 
-    for _, display in ipairs(folder:GetDescendants()) do
-        if VerifyDisplay(display) then
-            if ApplyObject(display) then
-                count += 1
-            end
+    for _, display in ipairs(displays) do
+        if ApplyObject(display) then
+            count += 1
         end
     end
 
     return count
 end
 
-local function ApplyDesign()
-    DesignEnabled = true
+--==================================================
+-- APLICAR DISEÑO COMPLETO
+--==================================================
 
+local function ApplyDesign()
+    local foundGun = false
     local character = Player.Character
     local backpack = Player:FindFirstChildOfClass("Backpack")
 
     if character then
         for _, object in ipairs(character:GetChildren()) do
-            if object:IsA("Tool") then
+            if VerifyGun(object) then
+                foundGun = true
+                break
+            end
+        end
+    end
+
+    if not foundGun and backpack then
+        for _, object in ipairs(backpack:GetChildren()) do
+            if VerifyGun(object) then
+                foundGun = true
+                break
+            end
+        end
+    end
+
+    local displays = GetVerifiedDisplays()
+
+    -- No aplicar si no se encontró ninguna parte verificada.
+    if not foundGun and #displays == 0 then
+        return false, 0
+    end
+
+    DesignEnabled = true
+
+    if character then
+        for _, object in ipairs(character:GetChildren()) do
+            if VerifyGun(object) then
                 ApplyGun(object)
             end
         end
@@ -229,13 +268,15 @@ local function ApplyDesign()
 
     if backpack then
         for _, object in ipairs(backpack:GetChildren()) do
-            if object:IsA("Tool") then
+            if VerifyGun(object) then
                 ApplyGun(object)
             end
         end
     end
 
-    return ApplyDisplays()
+    local count = ApplyDisplays()
+
+    return true, count
 end
 
 --==================================================
@@ -268,7 +309,7 @@ local function RestoreOriginal()
 end
 
 --==================================================
--- ANIMACION ROJO / BLANCO
+-- ESTELA ROJA Y BLANCA
 --==================================================
 
 local function AnimateTrail(beam)
@@ -288,6 +329,7 @@ local function AnimateTrail(beam)
     local token = (AnimationTokens[beam] or 0) + 1
     AnimationTokens[beam] = token
 
+    -- El negro queda reemplazado por rojo.
     local colors = {
         RED,
         WHITE,
@@ -308,6 +350,7 @@ local function AnimateTrail(beam)
             end
 
             beam.Color = ColorSequence.new(color)
+
             task.wait(STEP_DURATION)
         end
 
@@ -333,11 +376,7 @@ local function ConnectTool(tool)
     ConnectedTools[tool] = true
 
     tool.Activated:Connect(function()
-        if not DesignEnabled then
-            return
-        end
-
-        if not VerifyGun(tool) then
+        if not DesignEnabled or not VerifyGun(tool) then
             return
         end
 
@@ -382,15 +421,8 @@ local function DetectVoidscope()
         end
     end
 
-    local folder = workspace:FindFirstChild("WeaponDisplays")
-
-    if folder then
-        for _, display in ipairs(folder:GetDescendants()) do
-            if VerifyDisplay(display) then
-                displayCount += 1
-            end
-        end
-    end
+    local displays = GetVerifiedDisplays()
+    displayCount = #displays
 
     return foundGun, displayCount
 end
@@ -482,22 +514,13 @@ ApplyButton = CreateButton(
     "APLICAR TEXTURA",
     100,
     function()
-        local found, displays = DetectVoidscope()
+        local success = ApplyDesign()
 
-        if not found and displays == 0 then
+        if success then
+            ApplyButton.Text = "DISEÑO APLICADO"
+        else
             ApplyButton.Text = "VOIDSCOPE NO DETECTADA"
-
-            task.delay(2, function()
-                if ApplyButton.Parent then
-                    ApplyButton.Text = "APLICAR TEXTURA"
-                end
-            end)
-
-            return
         end
-
-        ApplyDesign()
-        ApplyButton.Text = "DISEÑO APLICADO"
 
         task.delay(2, function()
             if ApplyButton.Parent then
@@ -513,6 +536,7 @@ RestoreButton = CreateButton(
     150,
     function()
         RestoreOriginal()
+
         RestoreButton.Text = "ORIGINAL RESTAURADO"
 
         task.delay(2, function()
@@ -524,7 +548,7 @@ RestoreButton = CreateButton(
 )
 
 --==================================================
--- BOTON ROJO MITAD ROJO / MITAD NEGRO
+-- BOTON ROJO: MITAD ROJO / MITAD NEGRO
 --==================================================
 
 local RedButton = Instance.new("TextButton")
@@ -567,9 +591,9 @@ BlackHalfCorner.CornerRadius = UDim.new(0, 7)
 BlackHalfCorner.Parent = BlackHalf
 
 RedButton.Activated:Connect(function()
-    local found, displays = DetectVoidscope()
+    local success = ApplyDesign()
 
-    if not found and displays == 0 then
+    if not success then
         RedButton.Text = "NO ES VOIDSCOPE"
 
         task.delay(2, function()
@@ -577,15 +601,11 @@ RedButton.Activated:Connect(function()
                 RedButton.Text = "ROJO"
             end
         end)
-
-        return
     end
-
-    ApplyDesign()
 end)
 
 --==================================================
--- MINIMIZAR / CERRAR
+-- MINIMIZAR Y CERRAR
 --==================================================
 
 local Minimize = Instance.new("TextButton")
@@ -607,8 +627,6 @@ Close.TextColor3 = WHITE
 Close.Font = Enum.Font.GothamBold
 Close.TextSize = 14
 Close.Parent = Main
-
-local Minimized = false
 
 Minimize.Activated:Connect(function()
     Minimized = not Minimized
@@ -635,8 +653,6 @@ end)
 --==================================================
 -- TECLA G
 --==================================================
-
-local MenuVisible = true
 
 UserInputService.InputBegan:Connect(function(input, processed)
     if processed then
@@ -683,4 +699,4 @@ if Player.Character then
     SetupCharacter(Player.Character)
 end
 
-print("[Voidscope Changer 2.1] Cargado.")
+print("[Voidscope Changer 2.0] Cargado correctamente.")
