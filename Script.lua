@@ -161,21 +161,30 @@ local function GetBeam(object)
     return nil
 end
 
-local function GetBeamScript(beam)
+--==================================================
+-- LOCALIZAR SCRIPTS DEL BEAM
+--==================================================
+
+local function GetBeamScripts(beam)
+
+    local scripts = {}
 
     if not beam then
-        return nil
+        return scripts
     end
 
-    for _, child in ipairs(beam:GetChildren()) do
+    for _, object in ipairs(beam:GetDescendants()) do
 
-        if child:IsA("Script") then
-            return child
+        if object:IsA("Script")
+            or object:IsA("LocalScript") then
+
+            table.insert(scripts, object)
+
         end
 
     end
 
-    return nil
+    return scripts
 end
 
 --==================================================
@@ -192,8 +201,7 @@ local function SaveOriginal(object)
         TextureID = object.TextureID,
         Beam = nil,
         BeamColor = nil,
-        BeamScript = nil,
-        ScriptDisabled = nil
+        BeamScripts = {}
     }
 
     local beam = GetBeam(object)
@@ -203,11 +211,13 @@ local function SaveOriginal(object)
         state.Beam = beam
         state.BeamColor = beam.Color
 
-        local beamScript = GetBeamScript(beam)
+        for _, scriptObject in ipairs(GetBeamScripts(beam)) do
 
-        if beamScript then
-            state.BeamScript = beamScript
-            state.ScriptDisabled = beamScript.Disabled
+            table.insert(state.BeamScripts, {
+                Object = scriptObject,
+                Disabled = scriptObject.Disabled
+            })
+
         end
 
     end
@@ -231,8 +241,12 @@ local function ApplyObject(object)
 
     object.TextureID = AppliedDesign.Texture
 
-    if state.BeamScript and state.BeamScript.Parent then
-        state.BeamScript.Disabled = true
+    for _, scriptData in ipairs(state.BeamScripts) do
+
+        if scriptData.Object.Parent then
+            scriptData.Object.Disabled = true
+        end
+
     end
 
     return true
@@ -430,8 +444,12 @@ local function RestoreOriginal()
             state.Beam.Color = state.BeamColor
         end
 
-        if state.BeamScript and state.BeamScript.Parent then
-            state.BeamScript.Disabled = state.ScriptDisabled
+        for _, scriptData in ipairs(state.BeamScripts) do
+
+            if scriptData.Object.Parent then
+                scriptData.Object.Disabled = scriptData.Disabled
+            end
+
         end
 
     end
@@ -466,6 +484,9 @@ local function AnimateTrail(beam, selectedColor)
 
     local index = 1
     local lastUpdate = os.clock()
+
+    -- PRIMER COLOR INMEDIATO
+    beam.Color = ColorSequence.new(WHITE)
 
     local connection
 
