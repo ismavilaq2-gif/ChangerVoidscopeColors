@@ -5,6 +5,7 @@
 -- RELOADANIMATION INTEGRADO
 -- ESTELA: ALTERNANCIA CONSTANTE
 -- 0.033 SEGUNDOS POR COLOR
+-- CONTROL SELECTIVO: CustomBeam.Script
 --==================================================
 
 local Players = game:GetService("Players")
@@ -36,14 +37,13 @@ local COLORS = {
 local WHITE = Color3.fromRGB(255, 255, 255)
 local BLACK = Color3.fromRGB(0, 0, 0)
 
--- RELOADANIMATION
 local SOUND_ID = "rbxassetid://6968135315"
 local TARGET_TOOL_NAME = "Gun"
 local COOLDOWN_DURATION = 2
 
--- ACTIVATE = BLOQUEO DESACTIVADO
--- NOACTIVATE = BLOQUEO ACTIVADO
 local ReloadAnimationEnabled = false
+
+local TRAIL_COLOR_INTERVAL = 0.033
 
 local actionSound = Instance.new("Sound")
 actionSound.Name = "ReloadAnimationSound"
@@ -59,6 +59,7 @@ local VerifiedObjects = {}
 local OriginalStates = {}
 local ConnectedTools = {}
 local AnimationTokens = {}
+local MonitoringTools = {}
 
 local SelectedDesign = nil
 local AppliedDesign = nil
@@ -133,7 +134,7 @@ local function VerifyDisplay(display)
 end
 
 --==================================================
--- LOCALIZAR BEAM
+-- LOCALIZAR BEAM Y SU SCRIPT
 --==================================================
 
 local function GetBeam(object)
@@ -161,30 +162,19 @@ local function GetBeam(object)
     return nil
 end
 
---==================================================
--- LOCALIZAR SCRIPTS DEL BEAM
---==================================================
-
-local function GetBeamScripts(beam)
-
-    local scripts = {}
+local function GetOriginalBeamScript(beam)
 
     if not beam then
-        return scripts
+        return nil
     end
 
-    for _, object in ipairs(beam:GetDescendants()) do
+    local scriptObject = beam:FindFirstChild("Script")
 
-        if object:IsA("Script")
-            or object:IsA("LocalScript") then
-
-            table.insert(scripts, object)
-
-        end
-
+    if scriptObject and scriptObject:IsA("Script") then
+        return scriptObject
     end
 
-    return scripts
+    return nil
 end
 
 --==================================================
@@ -201,7 +191,8 @@ local function SaveOriginal(object)
         TextureID = object.TextureID,
         Beam = nil,
         BeamColor = nil,
-        BeamScripts = {}
+        BeamScript = nil,
+        BeamScriptDisabled = nil
     }
 
     local beam = GetBeam(object)
@@ -211,13 +202,11 @@ local function SaveOriginal(object)
         state.Beam = beam
         state.BeamColor = beam.Color
 
-        for _, scriptObject in ipairs(GetBeamScripts(beam)) do
+        local originalScript = GetOriginalBeamScript(beam)
 
-            table.insert(state.BeamScripts, {
-                Object = scriptObject,
-                Disabled = scriptObject.Disabled
-            })
-
+        if originalScript then
+            state.BeamScript = originalScript
+            state.BeamScriptDisabled = originalScript.Disabled
         end
 
     end
@@ -226,7 +215,7 @@ local function SaveOriginal(object)
 end
 
 --==================================================
--- APLICAR TEXTURA
+-- APLICAR TEXTURA Y CONTROL SELECTIVO
 --==================================================
 
 local function ApplyObject(object)
@@ -241,12 +230,11 @@ local function ApplyObject(object)
 
     object.TextureID = AppliedDesign.Texture
 
-    for _, scriptData in ipairs(state.BeamScripts) do
+    -- ÚNICAMENTE CustomBeam.Script.
+    -- No se modifican los demás scripts.
 
-        if scriptData.Object.Parent then
-            scriptData.Object.Disabled = true
-        end
-
+    if state.BeamScript and state.BeamScript.Parent then
+        state.BeamScript.Disabled = true
     end
 
     return true
@@ -305,6 +293,167 @@ local function ApplyDisplays()
 end
 
 --==================================================
+-- DETENER ANIMACION
+--==================================================
+
+local function StopTrail(beam, restoreColor)
+
+    if not beam then
+        return
+    end
+
+    local connection = AnimationTokens[beam]
+
+    if connection then
+        connection:Disconnect()
+        AnimationTokens[beam] = nil
+    end
+
+    if restoreColor and beam.Parent then
+
+        for _, state in pairs(OriginalStates) do
+
+            if state.Beam == beam then
+                beam.Color = state.BeamColor
+                break
+            end
+
+        end
+
+    end
+end
+
+--==================================================
+-- ESTELA: ALTERNANCIA CONSTANTE
+-- 0.033 SEGUNDOS POR COLOR
+--==================================================
+
+local function AnimateTrail(beam, selectedColor)
+
+    if not DesignEnabled or not AppliedDesign then
+        return
+    end
+
+    if not beam or not beam.Parent or not selectedColor then
+        return
+    end
+
+    StopTrail(beam, false)
+
+    local colors = {
+        WHITE,
+        selectedColor
+    }
+
+    local index = 1
+    local lastUpdate = os.clock()
+
+    beam.Color = ColorSequence.new(WHITE)
+
+    local connection
+
+    connection = RunService.Heartbeat:Connect(function()
+
+        if not DesignEnabled
+            or not AppliedDesign
+            or not beam.Parent then
+
+            connection:Disconnect()
+
+            if AnimationTokens[beam] == connection then
+                AnimationTokens[beam] = nil
+            end
+
+            return
+        end
+
+        local now = os.clock()
+        local elapsed = now - lastUpdate
+
+        if elapsed >= TRAIL_COLOR_INTERVAL then
+
+            local steps = math.floor(
+                elapsed / TRAIL_COLOR_INTERVAL
+            )
+
+            index = ((index - 1 + steps) % 2) + 1
+
+            lastUpdate += steps * TRAIL_COLOR_INTERVAL
+
+        end
+
+        beam.Color = ColorSequence.new(colors[index])
+
+    end)
+
+    AnimationTokens[beam] = connection
+end
+
+--==================================================
+-- DETECCION CONTINUA DEL BEAM
+-- NO DEPENDE DE TOOL.ACTIVATED
+--==================================================
+
+local function MonitorVoidscope(tool)
+
+    if not VerifyGun(tool) then
+        return
+    end
+
+    if MonitoringTools[tool] then
+        return
+    end
+
+    MonitoringTools[tool] = true
+
+    task.spawn(function()
+
+        while tool.Parent do
+
+            if DesignEnabled and AppliedDesign then
+
+                local handle = tool:FindFirstChild("Handle")
+
+                if handle then
+
+                    local beam = GetBeam(handle)
+
+                    if beam then
+
+                        local state = OriginalStates[handle]
+
+                        if not state then
+                            SaveOriginal(handle)
+                            state = OriginalStates[handle]
+                        end
+
+                        if state and state.BeamScript
+                            and state.BeamScript.Parent then
+
+                            state.BeamScript.Disabled = true
+
+                        end
+
+                        if not AnimationTokens[beam] then
+                            AnimateTrail(beam, AppliedDesign.Color)
+                        end
+
+                    end
+
+                end
+
+            end
+
+            task.wait(0.02)
+
+        end
+
+        MonitoringTools[tool] = nil
+
+    end)
+end
+
+--==================================================
 -- APLICAR DISEÑO COMPLETO
 --==================================================
 
@@ -360,6 +509,7 @@ local function ApplyDesign()
 
             if VerifyGun(object) then
                 ApplyGun(object)
+                MonitorVoidscope(object)
             end
 
         end
@@ -372,6 +522,7 @@ local function ApplyDesign()
 
             if VerifyGun(object) then
                 ApplyGun(object)
+                MonitorVoidscope(object)
             end
 
         end
@@ -381,38 +532,6 @@ local function ApplyDesign()
     local count = ApplyDisplays()
 
     return true, count, "SUCCESS"
-end
-
---==================================================
--- DETENER TRANSICION
---==================================================
-
-local function StopTrail(beam)
-
-    if not beam then
-        return
-    end
-
-    local connection = AnimationTokens[beam]
-
-    if connection then
-        connection:Disconnect()
-        AnimationTokens[beam] = nil
-    end
-
-    if not beam.Parent then
-        return
-    end
-
-    for _, state in pairs(OriginalStates) do
-
-        if state.Beam == beam then
-            beam.Color = state.BeamColor
-            return
-        end
-
-    end
-
 end
 
 --==================================================
@@ -444,180 +563,14 @@ local function RestoreOriginal()
             state.Beam.Color = state.BeamColor
         end
 
-        for _, scriptData in ipairs(state.BeamScripts) do
-
-            if scriptData.Object.Parent then
-                scriptData.Object.Disabled = scriptData.Disabled
-            end
-
+        if state.BeamScript and state.BeamScript.Parent then
+            state.BeamScript.Disabled = state.BeamScriptDisabled
         end
 
     end
 
     table.clear(OriginalStates)
     table.clear(VerifiedObjects)
-end
-
---==================================================
--- ESTELA: ALTERNANCIA CONSTANTE
--- 0.033 SEGUNDOS POR COLOR
---==================================================
-
-local TRAIL_COLOR_INTERVAL = 0.033
-
-local function AnimateTrail(beam, selectedColor)
-
-    if not DesignEnabled or not AppliedDesign then
-        return
-    end
-
-    if not beam or not beam.Parent or not selectedColor then
-        return
-    end
-
-    StopTrail(beam)
-
-    local colors = {
-        WHITE,
-        selectedColor
-    }
-
-    local index = 1
-    local lastUpdate = os.clock()
-
-    -- PRIMER COLOR INMEDIATO
-    beam.Color = ColorSequence.new(WHITE)
-
-    local connection
-
-    connection = RunService.PostSimulation:Connect(function()
-
-        if not DesignEnabled
-            or not AppliedDesign
-            or not beam.Parent then
-
-            connection:Disconnect()
-
-            if AnimationTokens[beam] == connection then
-                AnimationTokens[beam] = nil
-            end
-
-            return
-        end
-
-        local now = os.clock()
-        local elapsed = now - lastUpdate
-
-        if elapsed >= TRAIL_COLOR_INTERVAL then
-
-            local steps = math.floor(
-                elapsed / TRAIL_COLOR_INTERVAL
-            )
-
-            index = ((index - 1 + steps) % 2) + 1
-
-            lastUpdate += steps * TRAIL_COLOR_INTERVAL
-
-        end
-
-        beam.Color = ColorSequence.new(colors[index])
-
-    end)
-
-    AnimationTokens[beam] = connection
-
-end
-
---==================================================
--- CONECTAR DISPARO
---==================================================
-
-local function ConnectTool(tool)
-
-    if not VerifyGun(tool) then
-        return
-    end
-
-    if ConnectedTools[tool] then
-        return
-    end
-
-    ConnectedTools[tool] = true
-
-    tool.Activated:Connect(function()
-
-        if not DesignEnabled then
-            return
-        end
-
-        if not VerifyGun(tool) then
-            return
-        end
-
-        local beam = GetBeam(tool)
-
-        if beam then
-            AnimateTrail(beam, AppliedDesign.Color)
-        end
-
-    end)
-
-    -- NO SE DETIENE AL SOLTAR EL DISPARO.
-    -- LA ANIMACION CONTINUA HASTA QUE SE DETENGA
-    -- O EL BEAM DEJE DE EXISTIR.
-
-    if DesignEnabled then
-        ApplyGun(tool)
-    end
-
-end
-
---==================================================
--- DETECTAR VOIDSCOPE
---==================================================
-
-local function DetectVoidscope()
-
-    local foundGun = false
-    local displayCount = 0
-
-    local character = Player.Character
-    local backpack = Player:FindFirstChildOfClass("Backpack")
-
-    if character then
-
-        for _, object in ipairs(character:GetChildren()) do
-
-            if VerifyGun(object) then
-
-                foundGun = true
-                ConnectTool(object)
-
-            end
-
-        end
-
-    end
-
-    if backpack then
-
-        for _, object in ipairs(backpack:GetChildren()) do
-
-            if VerifyGun(object) then
-
-                foundGun = true
-                ConnectTool(object)
-
-            end
-
-        end
-
-    end
-
-    local displays = GetVerifiedDisplays()
-    displayCount = #displays
-
-    return foundGun, displayCount
 end
 
 --==================================================
@@ -675,6 +628,77 @@ local function SetupReloadAnimation(character)
         end
 
     end)
+
+end
+
+--==================================================
+-- DETECTAR VOIDSCOPE
+--==================================================
+
+local function DetectVoidscope()
+
+    local foundGun = false
+    local displayCount = 0
+
+    local character = Player.Character
+    local backpack = Player:FindFirstChildOfClass("Backpack")
+
+    if character then
+
+        for _, object in ipairs(character:GetChildren()) do
+
+            if VerifyGun(object) then
+
+                foundGun = true
+                MonitorVoidscope(object)
+
+            end
+
+        end
+
+    end
+
+    if backpack then
+
+        for _, object in ipairs(backpack:GetChildren()) do
+
+            if VerifyGun(object) then
+
+                foundGun = true
+                MonitorVoidscope(object)
+
+            end
+
+        end
+
+    end
+
+    local displays = GetVerifiedDisplays()
+    displayCount = #displays
+
+    return foundGun, displayCount
+end
+
+--==================================================
+-- CONECTAR HERRAMIENTA
+--==================================================
+
+local function ConnectTool(tool)
+
+    if not VerifyGun(tool) then
+        return
+    end
+
+    if ConnectedTools[tool] then
+        return
+    end
+
+    ConnectedTools[tool] = true
+
+    if DesignEnabled then
+        ApplyGun(tool)
+        MonitorVoidscope(tool)
+    end
 
 end
 
@@ -1104,7 +1128,10 @@ Minimize.Activated:Connect(function()
 end)
 
 Close.Activated:Connect(function()
+
+    RestoreOriginal()
     GUI:Destroy()
+
 end)
 
 --==================================================
