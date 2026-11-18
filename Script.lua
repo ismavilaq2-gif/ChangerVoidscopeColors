@@ -1,48 +1,95 @@
 
---[[
-    VOIDSCOPE CHANGER
-    Para pruebas en tu propio proyecto de Roblox Studio.
-
-    Textura original: rbxassetid://125806303939871
-    Textura personalizada: rbxassetid://79908965595599
-
-    Estela: ROJO - BLANCO - ROJO - BLANCO - ROJO - BLANCO
-    Duración aproximada: 0.20 segundos
-]]
+--==================================================
+-- VOIDSCOPE CHANGER
+-- VERSION: 2.1
+--==================================================
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
 
--- CONFIGURACIÓN
+-- CONFIGURACION
 local ORIGINAL_ID = "rbxassetid://125806303939871"
 local CUSTOM_ID = "rbxassetid://79908965595599"
 
 local RED = Color3.fromRGB(255, 0, 0)
 local WHITE = Color3.fromRGB(255, 255, 255)
+local BLACK = Color3.fromRGB(0, 0, 0)
 
-local TOTAL_DURATION = 0.20
-local STEP_DURATION = TOTAL_DURATION / 6
+local TRAIL_DURATION = 0.20
+local STEP_DURATION = TRAIL_DURATION / 6
 
--- REGISTROS
-local records = {}
-local connectedTools = {}
-local beamTokens = {}
+-- REGISTROS DE OBJETOS VERIFICADOS
+local VerifiedObjects = {}
+local OriginalStates = {}
+local ConnectedTools = {}
+local AnimationTokens = {}
 
-local designApplied = false
-local menuVisible = true
+local DesignEnabled = false
 
--- UTILIDADES
-local function isRecorded(object)
-    return records[object] ~= nil
+--==================================================
+-- VERIFICACION DE VOIDSCOPE
+--==================================================
+
+local function IsVerified(object)
+    if not object then
+        return false
+    end
+
+    if VerifiedObjects[object] then
+        return true
+    end
+
+    if not object:IsA("MeshPart") then
+        return false
+    end
+
+    if object.TextureID ~= ORIGINAL_ID then
+        return false
+    end
+
+    VerifiedObjects[object] = true
+    return true
 end
 
-local function getBeam(object)
+local function VerifyGun(tool)
+    if not tool or not tool:IsA("Tool") then
+        return false
+    end
+
+    if tool.Name ~= "Gun" then
+        return false
+    end
+
+    local handle = tool:FindFirstChild("Handle")
+
+    if not handle or not handle:IsA("MeshPart") then
+        return false
+    end
+
+    return IsVerified(handle)
+end
+
+local function VerifyDisplay(display)
+    if not display or display.Name ~= "GunDisplay" then
+        return false
+    end
+
+    return IsVerified(display)
+end
+
+--==================================================
+-- LOCALIZAR CUSTOMBEAM
+--==================================================
+
+local function GetBeam(object)
     if not object then
         return nil
     end
+
+    local beam
 
     if object:IsA("Tool") then
         local handle = object:FindFirstChild("Handle")
@@ -50,21 +97,19 @@ local function getBeam(object)
             return nil
         end
 
-        local beam = handle:FindFirstChild("CustomBeam", true)
-        if beam and beam:IsA("Beam") then
-            return beam
-        end
+        beam = handle:FindFirstChild("CustomBeam", true)
     else
-        local beam = object:FindFirstChild("CustomBeam", true)
-        if beam and beam:IsA("Beam") then
-            return beam
-        end
+        beam = object:FindFirstChild("CustomBeam", true)
+    end
+
+    if beam and beam:IsA("Beam") then
+        return beam
     end
 
     return nil
 end
 
-local function getBeamScript(beam)
+local function GetBeamScript(beam)
     if not beam then
         return nil
     end
@@ -78,119 +123,88 @@ local function getBeamScript(beam)
     return nil
 end
 
-local function verifyTool(tool)
-    if not tool or not tool:IsA("Tool") then
-        return false
-    end
+--==================================================
+-- GUARDAR ESTADO ORIGINAL
+--==================================================
 
-    if tool.Name ~= "Gun" then
-        return false
-    end
-
-    local handle = tool:FindFirstChild("Handle")
-    if not handle or not handle:IsA("MeshPart") then
-        return false
-    end
-
-    if isRecorded(handle) then
-        return true
-    end
-
-    return handle.TextureID == ORIGINAL_ID
-end
-
-local function verifyDisplay(display)
-    if not display or not display:IsA("MeshPart") then
-        return false
-    end
-
-    if display.Name ~= "GunDisplay" then
-        return false
-    end
-
-    if isRecorded(display) then
-        return true
-    end
-
-    return display.TextureID == ORIGINAL_ID
-end
-
-local function saveObject(object)
-    if records[object] then
+local function SaveOriginal(object)
+    if OriginalStates[object] then
         return
     end
 
-    local record = {
-        texture = object.TextureID,
-        beam = nil,
-        beamColor = nil,
-        beamScript = nil,
-        scriptDisabled = nil
+    local state = {
+        TextureID = object.TextureID,
+        Beam = nil,
+        BeamColor = nil,
+        BeamScript = nil,
+        ScriptDisabled = nil
     }
 
-    local beam = getBeam(object)
+    local beam = GetBeam(object)
 
     if beam then
-        record.beam = beam
-        record.beamColor = beam.Color
+        state.Beam = beam
+        state.BeamColor = beam.Color
 
-        local beamScript = getBeamScript(beam)
+        local beamScript = GetBeamScript(beam)
 
         if beamScript then
-            record.beamScript = beamScript
-            record.scriptDisabled = beamScript.Disabled
+            state.BeamScript = beamScript
+            state.ScriptDisabled = beamScript.Disabled
         end
     end
 
-    records[object] = record
+    OriginalStates[object] = state
 end
 
--- APLICAR DISEÑO
-local function applyObject(object)
-    if not object then
+--==================================================
+-- APLICAR TEXTURA
+--==================================================
+
+local function ApplyObject(object)
+    if not IsVerified(object) then
         return false
     end
 
-    saveObject(object)
+    SaveOriginal(object)
 
-    local record = records[object]
-    if not record then
-        return false
-    end
+    local state = OriginalStates[object]
 
     object.TextureID = CUSTOM_ID
 
-    if record.beamScript and record.beamScript.Parent then
-        record.beamScript.Disabled = true
+    if state.BeamScript and state.BeamScript.Parent then
+        state.BeamScript.Disabled = true
     end
 
     return true
 end
 
-local function applyToTool(tool)
-    if not verifyTool(tool) then
+local function ApplyGun(tool)
+    if not VerifyGun(tool) then
         return false
     end
 
     local handle = tool:FindFirstChild("Handle")
+
     if not handle then
         return false
     end
 
-    return applyObject(handle)
+    return ApplyObject(handle)
 end
 
-local function applyToDisplays()
+local function ApplyDisplays()
     local folder = workspace:FindFirstChild("WeaponDisplays")
+
     if not folder then
         return 0
     end
 
     local count = 0
 
-    for _, object in ipairs(folder:GetDescendants()) do
-        if verifyDisplay(object) then
-            if applyObject(object) then
+    for _, display in ipairs(folder:GetDescendants()) do
+        if VerifyDisplay(display) then
+            if ApplyObject(display) then
                 count += 1
             end
         end
@@ -199,16 +213,16 @@ local function applyToDisplays()
     return count
 end
 
-local function applyDesign()
-    designApplied = true
+local function ApplyDesign()
+    DesignEnabled = true
 
-    local character = player.Character
-    local backpack = player:FindFirstChildOfClass("Backpack")
+    local character = Player.Character
+    local backpack = Player:FindFirstChildOfClass("Backpack")
 
     if character then
         for _, object in ipairs(character:GetChildren()) do
             if object:IsA("Tool") then
-                applyToTool(object)
+                ApplyGun(object)
             end
         end
     end
@@ -216,62 +230,63 @@ local function applyDesign()
     if backpack then
         for _, object in ipairs(backpack:GetChildren()) do
             if object:IsA("Tool") then
-                applyToTool(object)
+                ApplyGun(object)
             end
         end
     end
 
-    local displays = applyToDisplays()
-
-    return displays
+    return ApplyDisplays()
 end
 
--- RESTAURAR
-local function restoreAll()
-    designApplied = false
+--==================================================
+-- RESTAURAR ORIGINAL
+--==================================================
 
-    for beam, token in pairs(beamTokens) do
-        beamTokens[beam] = token + 1
+local function RestoreOriginal()
+    DesignEnabled = false
+
+    for beam, token in pairs(AnimationTokens) do
+        AnimationTokens[beam] = token + 1
     end
 
-    for object, record in pairs(records) do
+    for object, state in pairs(OriginalStates) do
         if object and object.Parent then
-            object.TextureID = record.texture
+            object.TextureID = state.TextureID
         end
 
-        if record.beam and record.beam.Parent then
-            record.beam.Color = record.beamColor
+        if state.Beam and state.Beam.Parent then
+            state.Beam.Color = state.BeamColor
         end
 
-        if record.beamScript and record.beamScript.Parent then
-            record.beamScript.Disabled = record.scriptDisabled
+        if state.BeamScript and state.BeamScript.Parent then
+            state.BeamScript.Disabled = state.ScriptDisabled
         end
     end
 
-    table.clear(records)
+    table.clear(OriginalStates)
+    table.clear(VerifiedObjects)
 end
 
--- ANIMACIÓN DE LA ESTELA
-local function animateBeam(beam)
-    if not designApplied or not beam or not beam.Parent then
+--==================================================
+-- ANIMACION ROJO / BLANCO
+--==================================================
+
+local function AnimateTrail(beam)
+    if not DesignEnabled or not beam or not beam.Parent then
         return
     end
 
-    local originalColor = nil
+    local originalColor = beam.Color
 
-    for _, record in pairs(records) do
-        if record.beam == beam then
-            originalColor = record.beamColor
+    for _, state in pairs(OriginalStates) do
+        if state.Beam == beam then
+            originalColor = state.BeamColor
             break
         end
     end
 
-    if not originalColor then
-        originalColor = beam.Color
-    end
-
-    local token = (beamTokens[beam] or 0) + 1
-    beamTokens[beam] = token
+    local token = (AnimationTokens[beam] or 0) + 1
+    AnimationTokens[beam] = token
 
     local colors = {
         RED,
@@ -284,97 +299,85 @@ local function animateBeam(beam)
 
     task.spawn(function()
         for _, color in ipairs(colors) do
-            if not designApplied then
+            if not DesignEnabled then
                 return
             end
 
-            if not beam.Parent or beamTokens[beam] ~= token then
+            if not beam.Parent or AnimationTokens[beam] ~= token then
                 return
             end
 
             beam.Color = ColorSequence.new(color)
-
             task.wait(STEP_DURATION)
         end
 
-        if beam.Parent and beamTokens[beam] == token then
+        if beam.Parent and AnimationTokens[beam] == token then
             beam.Color = originalColor
         end
     end)
 end
 
--- DETECTAR Y CONECTAR EL ARMA
-local function connectTool(tool)
-    if not verifyTool(tool) then
+--==================================================
+-- CONECTAR DISPARO
+--==================================================
+
+local function ConnectTool(tool)
+    if not VerifyGun(tool) then
         return
     end
 
-    if connectedTools[tool] then
+    if ConnectedTools[tool] then
         return
     end
 
-    connectedTools[tool] = true
+    ConnectedTools[tool] = true
 
     tool.Activated:Connect(function()
-        if not verifyTool(tool) then
+        if not DesignEnabled then
             return
         end
 
-        if designApplied then
-            local beam = getBeam(tool)
-            if beam then
-                animateBeam(beam)
-            end
+        if not VerifyGun(tool) then
+            return
+        end
+
+        local beam = GetBeam(tool)
+
+        if beam then
+            AnimateTrail(beam)
         end
     end)
 
-    if designApplied then
-        applyToTool(tool)
+    if DesignEnabled then
+        ApplyGun(tool)
     end
 end
 
-local function scanTools()
-    local character = player.Character
-    local backpack = player:FindFirstChildOfClass("Backpack")
+--==================================================
+-- DETECTAR VOIDSCOPE
+--==================================================
+
+local function DetectVoidscope()
+    local foundGun = false
+    local displayCount = 0
+
+    local character = Player.Character
+    local backpack = Player:FindFirstChildOfClass("Backpack")
 
     if character then
         for _, object in ipairs(character:GetChildren()) do
-            if object:IsA("Tool") then
-                connectTool(object)
+            if VerifyGun(object) then
+                foundGun = true
+                ConnectTool(object)
             end
         end
     end
 
     if backpack then
         for _, object in ipairs(backpack:GetChildren()) do
-            if object:IsA("Tool") then
-                connectTool(object)
-            end
-        end
-    end
-end
-
-local function detectVoidscope()
-    local foundTool = false
-    local foundDisplays = 0
-
-    local character = player.Character
-    local backpack = player:FindFirstChildOfClass("Backpack")
-
-    if character then
-        for _, object in ipairs(character:GetChildren()) do
-            if verifyTool(object) then
-                foundTool = true
-                connectTool(object)
-            end
-        end
-    end
-
-    if backpack then
-        for _, object in ipairs(backpack:GetChildren()) do
-            if verifyTool(object) then
-                foundTool = true
-                connectTool(object)
+            if VerifyGun(object) then
+                foundGun = true
+                ConnectTool(object)
             end
         end
     end
@@ -382,260 +385,302 @@ local function detectVoidscope()
     local folder = workspace:FindFirstChild("WeaponDisplays")
 
     if folder then
-        for _, object in ipairs(folder:GetDescendants()) do
-            if verifyDisplay(object) then
-                foundDisplays += 1
+        for _, display in ipairs(folder:GetDescendants()) do
+            if VerifyDisplay(display) then
+                displayCount += 1
             end
         end
     end
 
-    return foundTool, foundDisplays
+    return foundGun, displayCount
 end
 
+--==================================================
 -- INTERFAZ
-local gui = Instance.new("ScreenGui")
-gui.Name = "VoidscopeChanger"
-gui.ResetOnSpawn = false
-gui.Parent = playerGui
+--==================================================
 
-local main = Instance.new("Frame")
-main.Name = "Main"
-main.Size = UDim2.fromOffset(310, 285)
-main.Position = UDim2.new(0.5, -155, 0.5, -142)
-main.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
-main.BorderSizePixel = 0
-main.Active = true
-main.Draggable = true
-main.Parent = gui
+local GUI = Instance.new("ScreenGui")
+GUI.Name = "VoidscopeChanger"
+GUI.ResetOnSpawn = false
+GUI.Parent = PlayerGui
 
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 10)
-corner.Parent = main
+local Main = Instance.new("Frame")
+Main.Name = "Main"
+Main.Size = UDim2.fromOffset(310, 300)
+Main.Position = UDim2.new(0.5, -155, 0.5, -150)
+Main.BackgroundColor3 = Color3.fromRGB(23, 23, 23)
+Main.BorderSizePixel = 0
+Main.Active = true
+Main.Draggable = true
+Main.Parent = GUI
 
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, -80, 0, 42)
-title.Position = UDim2.fromOffset(12, 0)
-title.BackgroundTransparency = 1
-title.Text = "VOID SCOPE  /  CHANGER"
-title.TextColor3 = WHITE
-title.Font = Enum.Font.GothamBold
-title.TextSize = 15
-title.TextXAlignment = Enum.TextXAlignment.Left
-title.Parent = main
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 10)
+MainCorner.Parent = Main
 
-local function createButton(name, text, y, callback)
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -80, 0, 42)
+Title.Position = UDim2.fromOffset(12, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "VOID SCOPE / CHANGER"
+Title.TextColor3 = WHITE
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 15
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Main
+
+local function CreateButton(name, text, y, callback)
     local button = Instance.new("TextButton")
+
     button.Name = name
     button.Size = UDim2.new(1, -36, 0, 42)
     button.Position = UDim2.fromOffset(18, y)
-    button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    button.BackgroundColor3 = Color3.fromRGB(42, 42, 42)
     button.BorderSizePixel = 0
     button.Text = text
     button.TextColor3 = WHITE
     button.Font = Enum.Font.GothamBold
     button.TextSize = 13
-    button.AutoButtonColor = true
-    button.Parent = main
+    button.Parent = Main
 
-    local buttonCorner = Instance.new("UICorner")
-    buttonCorner.CornerRadius = UDim.new(0, 7)
-    buttonCorner.Parent = button
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 7)
+    corner.Parent = button
 
     button.Activated:Connect(callback)
 
     return button
 end
 
-local detectButton
-local applyButton
-local restoreButton
+local DetectButton
+local ApplyButton
+local RestoreButton
 
-detectButton = createButton(
+DetectButton = CreateButton(
     "DetectButton",
     "DETECTAR VOIDSCOPE",
-    55,
+    50,
     function()
-        local foundTool, displays = detectVoidscope()
+        local found, displays = DetectVoidscope()
 
-        if foundTool or displays > 0 then
-            detectButton.Text = "VOIDSCOPE DETECTADA"
+        if found or displays > 0 then
+            DetectButton.Text = "VOIDSCOPE DETECTADA"
         else
-            detectButton.Text = "NO SE ENCONTRÓ VOIDSCOPE"
+            DetectButton.Text = "NO SE ENCONTRO VOIDSCOPE"
         end
 
         task.delay(2, function()
-            if detectButton.Parent then
-                detectButton.Text = "DETECTAR VOIDSCOPE"
+            if DetectButton.Parent then
+                DetectButton.Text = "DETECTAR VOIDSCOPE"
             end
         end)
     end
 )
 
-applyButton = createButton(
+ApplyButton = CreateButton(
     "ApplyButton",
     "APLICAR TEXTURA",
-    105,
+    100,
     function()
-        local displays = applyDesign()
+        local found, displays = DetectVoidscope()
 
-        scanTools()
+        if not found and displays == 0 then
+            ApplyButton.Text = "VOIDSCOPE NO DETECTADA"
 
-        applyButton.Text = "DISEÑO APLICADO"
+            task.delay(2, function()
+                if ApplyButton.Parent then
+                    ApplyButton.Text = "APLICAR TEXTURA"
+                end
+            end)
+
+            return
+        end
+
+        ApplyDesign()
+        ApplyButton.Text = "DISEÑO APLICADO"
 
         task.delay(2, function()
-            if applyButton.Parent then
-                applyButton.Text = "APLICAR TEXTURA"
+            if ApplyButton.Parent then
+                ApplyButton.Text = "APLICAR TEXTURA"
             end
         end)
     end
 )
 
-restoreButton = createButton(
+RestoreButton = CreateButton(
     "RestoreButton",
     "RESTAURAR ORIGINAL",
-    155,
+    150,
     function()
-        restoreAll()
-
-        restoreButton.Text = "ORIGINAL RESTAURADO"
+        RestoreOriginal()
+        RestoreButton.Text = "ORIGINAL RESTAURADO"
 
         task.delay(2, function()
-            if restoreButton.Parent then
-                restoreButton.Text = "RESTAURAR ORIGINAL"
+            if RestoreButton.Parent then
+                RestoreButton.Text = "RESTAURAR ORIGINAL"
             end
         end)
     end
 )
 
--- BOTÓN ROJO: MITAD ROJA Y MITAD NEGRA
-local redButton = Instance.new("TextButton")
-redButton.Name = "RedButton"
-redButton.Size = UDim2.new(1, -36, 0, 42)
-redButton.Position = UDim2.fromOffset(18, 205)
-redButton.BackgroundTransparency = 1
-redButton.Text = "ROJO"
-redButton.TextColor3 = WHITE
-redButton.Font = Enum.Font.GothamBold
-redButton.TextSize = 14
-redButton.ZIndex = 3
-redButton.Parent = main
+--==================================================
+-- BOTON ROJO MITAD ROJO / MITAD NEGRO
+--==================================================
 
-local redLeft = Instance.new("Frame")
-redLeft.Size = UDim2.new(0.5, 0, 1, 0)
-redLeft.BackgroundColor3 = RED
-redLeft.BorderSizePixel = 0
-redLeft.ZIndex = 2
-redLeft.Parent = redButton
+local RedButton = Instance.new("TextButton")
+RedButton.Name = "RedButton"
+RedButton.Size = UDim2.new(1, -36, 0, 42)
+RedButton.Position = UDim2.fromOffset(18, 205)
+RedButton.BackgroundTransparency = 1
+RedButton.Text = "ROJO"
+RedButton.TextColor3 = WHITE
+RedButton.Font = Enum.Font.GothamBold
+RedButton.TextSize = 14
+RedButton.ZIndex = 3
+RedButton.Parent = Main
 
-local blackRight = Instance.new("Frame")
-blackRight.Size = UDim2.new(0.5, 0, 1, 0)
-blackRight.Position = UDim2.new(0.5, 0, 0, 0)
-blackRight.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-blackRight.BorderSizePixel = 0
-blackRight.ZIndex = 2
-blackRight.Parent = redButton
+local RedHalf = Instance.new("Frame")
+RedHalf.Size = UDim2.new(0.5, 0, 1, 0)
+RedHalf.BackgroundColor3 = RED
+RedHalf.BorderSizePixel = 0
+RedHalf.ZIndex = 2
+RedHalf.Parent = RedButton
 
-local redCorner = Instance.new("UICorner")
-redCorner.CornerRadius = UDim.new(0, 7)
-redCorner.Parent = redButton
+local BlackHalf = Instance.new("Frame")
+BlackHalf.Size = UDim2.new(0.5, 0, 1, 0)
+BlackHalf.Position = UDim2.new(0.5, 0, 0, 0)
+BlackHalf.BackgroundColor3 = BLACK
+BlackHalf.BorderSizePixel = 0
+BlackHalf.ZIndex = 2
+BlackHalf.Parent = RedButton
 
-local leftCorner = Instance.new("UICorner")
-leftCorner.CornerRadius = UDim.new(0, 7)
-leftCorner.Parent = redLeft
+local RedButtonCorner = Instance.new("UICorner")
+RedButtonCorner.CornerRadius = UDim.new(0, 7)
+RedButtonCorner.Parent = RedButton
 
-local rightCorner = Instance.new("UICorner")
-rightCorner.CornerRadius = UDim.new(0, 7)
-rightCorner.Parent = blackRight
+local RedHalfCorner = Instance.new("UICorner")
+RedHalfCorner.CornerRadius = UDim.new(0, 7)
+RedHalfCorner.Parent = RedHalf
 
-redButton.Activated:Connect(function()
-    applyDesign()
-    scanTools()
+local BlackHalfCorner = Instance.new("UICorner")
+BlackHalfCorner.CornerRadius = UDim.new(0, 7)
+BlackHalfCorner.Parent = BlackHalf
+
+RedButton.Activated:Connect(function()
+    local found, displays = DetectVoidscope()
+
+    if not found and displays == 0 then
+        RedButton.Text = "NO ES VOIDSCOPE"
+
+        task.delay(2, function()
+            if RedButton.Parent then
+                RedButton.Text = "ROJO"
+            end
+        end)
+
+        return
+    end
+
+    ApplyDesign()
 end)
 
--- MINIMIZAR Y CERRAR
-local minimize = Instance.new("TextButton")
-minimize.Size = UDim2.fromOffset(30, 30)
-minimize.Position = UDim2.new(1, -72, 0, 6)
-minimize.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-minimize.Text = "-"
-minimize.TextColor3 = WHITE
-minimize.Font = Enum.Font.GothamBold
-minimize.TextSize = 20
-minimize.Parent = main
+--==================================================
+-- MINIMIZAR / CERRAR
+--==================================================
 
-local close = Instance.new("TextButton")
-close.Size = UDim2.fromOffset(30, 30)
-close.Position = UDim2.new(1, -38, 0, 6)
-close.BackgroundColor3 = Color3.fromRGB(130, 25, 25)
-close.Text = "X"
-close.TextColor3 = WHITE
-close.Font = Enum.Font.GothamBold
-close.TextSize = 14
-close.Parent = main
+local Minimize = Instance.new("TextButton")
+Minimize.Size = UDim2.fromOffset(30, 30)
+Minimize.Position = UDim2.new(1, -72, 0, 6)
+Minimize.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+Minimize.Text = "-"
+Minimize.TextColor3 = WHITE
+Minimize.Font = Enum.Font.GothamBold
+Minimize.TextSize = 20
+Minimize.Parent = Main
 
-local minimized = false
+local Close = Instance.new("TextButton")
+Close.Size = UDim2.fromOffset(30, 30)
+Close.Position = UDim2.new(1, -38, 0, 6)
+Close.BackgroundColor3 = Color3.fromRGB(130, 25, 25)
+Close.Text = "X"
+Close.TextColor3 = WHITE
+Close.Font = Enum.Font.GothamBold
+Close.TextSize = 14
+Close.Parent = Main
 
-minimize.Activated:Connect(function()
-    minimized = not minimized
+local Minimized = false
 
-    for _, object in ipairs(main:GetChildren()) do
-        if object ~= title
-            and object ~= minimize
-            and object ~= close
-            and object ~= corner then
+Minimize.Activated:Connect(function()
+    Minimized = not Minimized
 
-            object.Visible = not minimized
+    for _, object in ipairs(Main:GetChildren()) do
+        if object ~= Title
+            and object ~= Minimize
+            and object ~= Close
+            and object ~= MainCorner then
+
+            object.Visible = not Minimized
         end
     end
 
-    main.Size = minimized
+    Main.Size = Minimized
         and UDim2.fromOffset(310, 42)
-        or UDim2.fromOffset(310, 285)
+        or UDim2.fromOffset(310, 300)
 end)
 
-close.Activated:Connect(function()
-    gui:Destroy()
+Close.Activated:Connect(function()
+    GUI:Destroy()
 end)
 
--- TECLA G: MOSTRAR / OCULTAR
+--==================================================
+-- TECLA G
+--==================================================
+
+local MenuVisible = true
+
 UserInputService.InputBegan:Connect(function(input, processed)
     if processed then
         return
     end
 
     if input.KeyCode == Enum.KeyCode.G then
-        menuVisible = not menuVisible
-        main.Visible = menuVisible
+        MenuVisible = not MenuVisible
+        Main.Visible = MenuVisible
     end
 end)
 
--- DETECCIÓN AUTOMÁTICA
-local function setupCharacter(character)
+--==================================================
+-- DETECCION AUTOMATICA
+--==================================================
+
+local function SetupCharacter(character)
     character.ChildAdded:Connect(function(object)
         if object:IsA("Tool") then
             task.wait(0.1)
-            connectTool(object)
+            ConnectTool(object)
         end
     end)
 
-    scanTools()
+    for _, object in ipairs(character:GetChildren()) do
+        if object:IsA("Tool") then
+            ConnectTool(object)
+        end
+    end
 end
 
-player.CharacterAdded:Connect(setupCharacter)
+local Backpack = Player:WaitForChild("Backpack")
 
-local backpack = player:WaitForChild("Backpack")
-
-backpack.ChildAdded:Connect(function(object)
+Backpack.ChildAdded:Connect(function(object)
     if object:IsA("Tool") then
         task.wait(0.1)
-        connectTool(object)
+        ConnectTool(object)
     end
 end)
 
-if player.Character then
-    setupCharacter(player.Character)
+Player.CharacterAdded:Connect(SetupCharacter)
+
+if Player.Character then
+    SetupCharacter(Player.Character)
 end
 
-scanTools()
-
-print("[Voidscope Changer] Cargado correctamente.")
+print("[Voidscope Changer 2.1] Cargado.")
