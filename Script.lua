@@ -1,8 +1,10 @@
+
 --==================================================
 -- VOIDSCOPE CHANGER 2.0
 -- ROJO + AZUL / SELECTOR DESPLEGABLE
 -- RELOADANIMATION INTEGRADO
--- ESTELA: TIME LERP + GET COLOR DISTANCE
+-- ESTELA: ALTERNANCIA CONSTANTE
+-- 0.033 SEGUNDOS POR COLOR
 --==================================================
 
 local Players = game:GetService("Players")
@@ -483,11 +485,17 @@ local function AnimateTrail(beam, selectedColor)
         end
 
         local now = os.clock()
+        local elapsed = now - lastUpdate
 
-        if now - lastUpdate >= TRAIL_COLOR_INTERVAL then
+        if elapsed >= TRAIL_COLOR_INTERVAL then
 
-            index = index % 2 + 1
-            lastUpdate = now
+            local steps = math.floor(
+                elapsed / TRAIL_COLOR_INTERVAL
+            )
+
+            index = ((index - 1 + steps) % 2) + 1
+
+            lastUpdate += steps * TRAIL_COLOR_INTERVAL
 
         end
 
@@ -534,7 +542,8 @@ local function ConnectTool(tool)
     end)
 
     -- NO SE DETIENE AL SOLTAR EL DISPARO.
-    -- LA ANIMACION TERMINA POR SU PROPIA DURACION.
+    -- LA ANIMACION CONTINUA HASTA QUE SE DETENGA
+    -- O EL BEAM DEJE DE EXISTIR.
 
     if DesignEnabled then
         ApplyGun(tool)
