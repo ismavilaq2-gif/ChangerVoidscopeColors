@@ -1,17 +1,14 @@
-
 --==================================================
 -- VOIDSCOPE CHANGER 2.0
 -- ROJO + AZUL / SELECTOR DESPLEGABLE
 -- RELOADANIMATION INTEGRADO
--- ESTELA: ALTERNANCIA CONSTANTE
--- 0.033 SEGUNDOS POR COLOR
+-- ESTELA: COLOR UNIFORME
 -- CONTROL SELECTIVO: CustomBeam.Script
 --==================================================
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local SoundService = game:GetService("SoundService")
-local RunService = game:GetService("RunService")
 
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
@@ -43,8 +40,6 @@ local COOLDOWN_DURATION = 2
 
 local ReloadAnimationEnabled = false
 
-local TRAIL_COLOR_INTERVAL = 0.033
-
 local actionSound = Instance.new("Sound")
 actionSound.Name = "ReloadAnimationSound"
 actionSound.SoundId = SOUND_ID
@@ -58,7 +53,6 @@ actionSound.Parent = SoundService
 local VerifiedObjects = {}
 local OriginalStates = {}
 local ConnectedTools = {}
-local AnimationTokens = {}
 local MonitoringTools = {}
 
 local SelectedDesign = nil
@@ -181,6 +175,30 @@ end
 -- GUARDAR ESTADO ORIGINAL
 --==================================================
 
+local function CaptureBeamState(object, state)
+
+    local beam = GetBeam(object)
+
+    if not beam then
+        return
+    end
+
+    if state.Beam ~= beam then
+
+        state.Beam = beam
+        state.BeamColor = beam.Color
+
+        local originalScript = GetOriginalBeamScript(beam)
+
+        state.BeamScript = originalScript
+        state.BeamScriptDisabled = originalScript
+            and originalScript.Disabled
+            or nil
+
+    end
+
+end
+
 local function SaveOriginal(object)
 
     if OriginalStates[object] then
@@ -195,27 +213,14 @@ local function SaveOriginal(object)
         BeamScriptDisabled = nil
     }
 
-    local beam = GetBeam(object)
-
-    if beam then
-
-        state.Beam = beam
-        state.BeamColor = beam.Color
-
-        local originalScript = GetOriginalBeamScript(beam)
-
-        if originalScript then
-            state.BeamScript = originalScript
-            state.BeamScriptDisabled = originalScript.Disabled
-        end
-
-    end
-
     OriginalStates[object] = state
+
+    CaptureBeamState(object, state)
+
 end
 
 --==================================================
--- APLICAR TEXTURA Y CONTROL SELECTIVO
+-- APLICAR TEXTURA Y COLOR UNIFORME
 --==================================================
 
 local function ApplyObject(object)
@@ -230,11 +235,18 @@ local function ApplyObject(object)
 
     object.TextureID = AppliedDesign.Texture
 
-    -- ÚNICAMENTE CustomBeam.Script.
-    -- No se modifican los demás scripts.
+    CaptureBeamState(object, state)
 
-    if state.BeamScript and state.BeamScript.Parent then
-        state.BeamScript.Disabled = true
+    if state.Beam and state.Beam.Parent then
+
+        if state.BeamScript and state.BeamScript.Parent then
+            state.BeamScript.Disabled = true
+        end
+
+        state.Beam.Color = ColorSequence.new(
+            AppliedDesign.Color
+        )
+
     end
 
     return true
@@ -293,105 +305,8 @@ local function ApplyDisplays()
 end
 
 --==================================================
--- DETENER ANIMACION
---==================================================
-
-local function StopTrail(beam, restoreColor)
-
-    if not beam then
-        return
-    end
-
-    local connection = AnimationTokens[beam]
-
-    if connection then
-        connection:Disconnect()
-        AnimationTokens[beam] = nil
-    end
-
-    if restoreColor and beam.Parent then
-
-        for _, state in pairs(OriginalStates) do
-
-            if state.Beam == beam then
-                beam.Color = state.BeamColor
-                break
-            end
-
-        end
-
-    end
-end
-
---==================================================
--- ESTELA: ALTERNANCIA CONSTANTE
--- 0.033 SEGUNDOS POR COLOR
---==================================================
-
-local function AnimateTrail(beam, selectedColor)
-
-    if not DesignEnabled or not AppliedDesign then
-        return
-    end
-
-    if not beam or not beam.Parent or not selectedColor then
-        return
-    end
-
-    StopTrail(beam, false)
-
-    local colors = {
-        WHITE,
-        selectedColor
-    }
-
-    local index = 1
-    local lastUpdate = os.clock()
-
-    beam.Color = ColorSequence.new(WHITE)
-
-    local connection
-
-    connection = RunService.Heartbeat:Connect(function()
-
-        if not DesignEnabled
-            or not AppliedDesign
-            or not beam.Parent then
-
-            connection:Disconnect()
-
-            if AnimationTokens[beam] == connection then
-                AnimationTokens[beam] = nil
-            end
-
-            return
-        end
-
-        local now = os.clock()
-        local elapsed = now - lastUpdate
-
-        if elapsed >= TRAIL_COLOR_INTERVAL then
-
-            local steps = math.floor(
-                elapsed / TRAIL_COLOR_INTERVAL
-            )
-
-            index = ((index - 1 + steps) % 2) + 1
-
-            lastUpdate += steps * TRAIL_COLOR_INTERVAL
-
-        end
-
-        beam.Color = ColorSequence.new(colors[index])
-
-    end)
-
-    AnimationTokens[beam] = connection
-end
-
---==================================================
 -- DETECCION CONTINUA DEL BEAM
--- NO DEPENDE DE TOOL.ACTIVATED
+-- COLOR UNIFORME
 --==================================================
 
 local function MonitorVoidscope(tool)
@@ -416,26 +331,32 @@ local function MonitorVoidscope(tool)
 
                 if handle then
 
-                    local beam = GetBeam(handle)
+                    local state = OriginalStates[handle]
 
-                    if beam then
+                    if not state then
+                        SaveOriginal(handle)
+                        state = OriginalStates[handle]
+                    end
 
-                        local state = OriginalStates[handle]
+                    if state then
 
-                        if not state then
-                            SaveOriginal(handle)
-                            state = OriginalStates[handle]
-                        end
+                        CaptureBeamState(handle, state)
 
-                        if state and state.BeamScript
-                            and state.BeamScript.Parent then
+                        local beam = GetBeam(handle)
 
-                            state.BeamScript.Disabled = true
+                        if beam then
 
-                        end
+                            if state.BeamScript
+                                and state.BeamScript.Parent then
 
-                        if not AnimationTokens[beam] then
-                            AnimateTrail(beam, AppliedDesign.Color)
+                                state.BeamScript.Disabled = true
+
+                            end
+
+                            beam.Color = ColorSequence.new(
+                                AppliedDesign.Color
+                            )
+
                         end
 
                     end
@@ -451,6 +372,7 @@ local function MonitorVoidscope(tool)
         MonitoringTools[tool] = nil
 
     end)
+
 end
 
 --==================================================
@@ -543,16 +465,6 @@ local function RestoreOriginal()
     DesignEnabled = false
     AppliedDesign = nil
 
-    for beam, connection in pairs(AnimationTokens) do
-
-        if connection then
-            connection:Disconnect()
-        end
-
-        AnimationTokens[beam] = nil
-
-    end
-
     for object, state in pairs(OriginalStates) do
 
         if object and object.Parent then
@@ -571,6 +483,7 @@ local function RestoreOriginal()
 
     table.clear(OriginalStates)
     table.clear(VerifiedObjects)
+
 end
 
 --==================================================
