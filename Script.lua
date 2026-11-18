@@ -3,7 +3,7 @@
 -- VOIDSCOPE CHANGER 2.0
 -- ROJO + AZUL / SELECTOR DESPLEGABLE
 -- RELOADANIMATION INTEGRADO
--- ESTELA: TRANSICION SUAVE MIENTRAS DISPARAS
+-- ESTELA: TIME LERP + GET COLOR DISTANCE
 --==================================================
 
 local Players = game:GetService("Players")
@@ -34,9 +34,6 @@ local COLORS = {
 
 local WHITE = Color3.fromRGB(255, 255, 255)
 local BLACK = Color3.fromRGB(0, 0, 0)
-
--- Duración de un ciclo completo blanco-color-blanco
-local TRAIL_CYCLE_DURATION = 1.2
 
 -- RELOADANIMATION
 local SOUND_ID = "rbxassetid://6968135315"
@@ -443,11 +440,11 @@ local function RestoreOriginal()
 end
 
 --==================================================
--- ESTELA: TRANSICION SUAVE
+-- ESTELA: TIME LERP + GET COLOR DISTANCE
 -- BLANCO <-> COLOR SELECCIONADO
 --==================================================
 
-local function AnimateTrail(beam)
+local function AnimateTrail(beam, selectedColor)
 
     if not DesignEnabled or not AppliedDesign then
         return
@@ -457,20 +454,54 @@ local function AnimateTrail(beam)
         return
     end
 
+    if not selectedColor then
+        return
+    end
+
     StopTrail(beam)
 
-    local startTime = os.clock()
+    local colors = {
+        WHITE,
+        selectedColor
+    }
+
+    local index = 1
+    local currentColor = colors[1]
+    local targetColor = colors[2]
+
+    local lastUpdate = os.clock()
+
     local connection
 
-    connection = RunService.Heartbeat:Connect(function()
+    -- INTERPOLACION ORIGINAL
+    local function TimeLerp(p1, p2, p3)
+
+        return p1 + (p2 - p1) * math.min(p3 / 1, 1)
+
+    end
+
+    -- DISTANCIA ENTRE COLORES
+    local function GetColorDistance(color)
+
+        local r = color.R - targetColor.R
+        local g = color.G - targetColor.G
+        local b = color.B - targetColor.B
+
+        return math.sqrt(
+            r * r +
+            g * g +
+            b * b
+        )
+
+    end
+
+    connection = RunService.PostSimulation:Connect(function()
 
         if not DesignEnabled
             or not AppliedDesign
             or not beam.Parent then
 
-            if connection then
-                connection:Disconnect()
-            end
+            connection:Disconnect()
 
             if AnimationTokens[beam] == connection then
                 AnimationTokens[beam] = nil
@@ -479,17 +510,50 @@ local function AnimateTrail(beam)
             return
         end
 
-        local elapsed = os.clock() - startTime
+        local elapsed = os.clock() - lastUpdate
 
-        local phase = (elapsed % TRAIL_CYCLE_DURATION)
-            / TRAIL_CYCLE_DURATION
+        local nextColor = {
+            R = TimeLerp(
+                currentColor.R,
+                targetColor.R,
+                elapsed
+            ),
 
-        local alpha = (1 - math.cos(phase * math.pi * 2)) / 2
+            G = TimeLerp(
+                currentColor.G,
+                targetColor.G,
+                elapsed
+            ),
 
-        local selectedColor = AppliedDesign.Color
-        local currentColor = WHITE:Lerp(selectedColor, alpha)
+            B = TimeLerp(
+                currentColor.B,
+                targetColor.B,
+                elapsed
+            )
+        }
 
-        beam.Color = ColorSequence.new(currentColor)
+        local color = Color3.new(
+            nextColor.R,
+            nextColor.G,
+            nextColor.B
+        )
+
+        if GetColorDistance(color) <= 0.01 then
+
+            index += 1
+
+            if not colors[index] then
+                index = 1
+            end
+
+            currentColor = targetColor
+            targetColor = colors[index]
+
+            lastUpdate = os.clock()
+
+        end
+
+        beam.Color = ColorSequence.new(color)
 
     end)
 
@@ -526,7 +590,7 @@ local function ConnectTool(tool)
         local beam = GetBeam(tool)
 
         if beam then
-            AnimateTrail(beam)
+            AnimateTrail(beam, AppliedDesign.Color)
         end
 
     end)
