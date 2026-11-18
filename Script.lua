@@ -1,7 +1,7 @@
-
 --==================================================
 -- VOIDSCOPE CHANGER 2.0
 -- ROJO + AZUL / SELECTOR DESPLEGABLE
+-- ESTELA: 75 CAMBIOS / 4.95 SEGUNDOS
 --==================================================
 
 local Players = game:GetService("Players")
@@ -31,8 +31,8 @@ local COLORS = {
 local WHITE = Color3.fromRGB(255, 255, 255)
 local BLACK = Color3.fromRGB(0, 0, 0)
 
-local TRAIL_DURATION = 0.20
-local STEP_DURATION = 0.033
+local TRAIL_CHANGES = 75
+local STEP_DURATION = 0.066
 
 --==================================================
 -- REGISTROS
@@ -198,7 +198,6 @@ local function SaveOriginal(object)
     end
 
     OriginalStates[object] = state
-
 end
 
 --==================================================
@@ -234,7 +233,6 @@ local function ApplyGun(tool)
     local handle = tool:FindFirstChild("Handle")
 
     return ApplyObject(handle)
-
 end
 
 --==================================================
@@ -260,7 +258,6 @@ local function GetVerifiedDisplays()
     end
 
     return results
-
 end
 
 local function ApplyDisplays()
@@ -277,7 +274,6 @@ local function ApplyDisplays()
     end
 
     return count
-
 end
 
 --==================================================
@@ -357,7 +353,6 @@ local function ApplyDesign()
     local count = ApplyDisplays()
 
     return true, count, "SUCCESS"
-
 end
 
 --==================================================
@@ -391,11 +386,11 @@ local function RestoreOriginal()
 
     table.clear(OriginalStates)
     table.clear(VerifiedObjects)
-
 end
 
 --==================================================
 -- ESTELA BLANCA + COLOR SELECCIONADO
+-- 75 CAMBIOS / 0.066 SEGUNDOS
 --==================================================
 
 local function AnimateTrail(beam)
@@ -424,51 +419,396 @@ local function AnimateTrail(beam)
     local token = (AnimationTokens[beam] or 0) + 1
     AnimationTokens[beam] = token
 
-    -- SECUENCIA EXACTA:
-    -- BLANCO
-    -- COLOR
-    -- BLANCO
-    -- COLOR
-    -- BLANCO
-    -- COLOR
+    local function CanContinue()
 
-    local colors = {
-        WHITE,
-        selectedColor,
-        WHITE,
-        selectedColor,
-        WHITE,
-        selectedColor
-    }
+        return DesignEnabled
+            and beam.Parent ~= nil
+            and AnimationTokens[beam] == token
+
+    end
 
     task.spawn(function()
 
-        for _, color in ipairs(colors) do
+        -- CAMBIO 1
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
 
-            if not DesignEnabled then
-                return
-            end
+        -- CAMBIO 2
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
 
-            if not beam.Parent then
-                return
-            end
+        -- CAMBIO 3
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
 
-            if AnimationTokens[beam] ~= token then
-                return
-            end
+        -- CAMBIO 4
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
 
-            beam.Color = ColorSequence.new(color)
+        -- CAMBIO 5
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
 
-            task.wait(STEP_DURATION)
+        -- CAMBIO 6
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
 
-        end
+        -- CAMBIO 7
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
 
-        if beam.Parent and AnimationTokens[beam] == token then
+        -- CAMBIO 8
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 9
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 10
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 11
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 12
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 13
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 14
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 15
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 16
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 17
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 18
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 19
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 20
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 21
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 22
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 23
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 24
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 25
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 26
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 27
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 28
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 29
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 30
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 31
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 32
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 33
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 34
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 35
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 36
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 37
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 38
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 39
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 40
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 41
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 42
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 43
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 44
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 45
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 46
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 47
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 48
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 49
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 50
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 51
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 52
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 53
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 54
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 55
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 56
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 57
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 58
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 59
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 60
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 61
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 62
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 63
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 64
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 65
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 66
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 67
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 68
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 69
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 70
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 71
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 72
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 73
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 74
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(selectedColor)
+        task.wait(STEP_DURATION)
+
+        -- CAMBIO 75
+        if not CanContinue() then return end
+        beam.Color = ColorSequence.new(WHITE)
+        task.wait(STEP_DURATION)
+
+        if CanContinue() then
             beam.Color = originalColor
         end
 
     end)
-
 end
 
 --==================================================
@@ -508,7 +848,6 @@ local function ConnectTool(tool)
     if DesignEnabled then
         ApplyGun(tool)
     end
-
 end
 
 --==================================================
@@ -557,7 +896,6 @@ local function DetectVoidscope()
     displayCount = #displays
 
     return foundGun, displayCount
-
 end
 
 --==================================================
@@ -621,7 +959,6 @@ local function CreateButton(name, text, y, callback)
     button.Activated:Connect(callback)
 
     return button
-
 end
 
 local DetectButton
@@ -797,12 +1134,10 @@ local function UpdateSelector()
         SelectorText.Text = "SELECCIONAR COLOR  ▼"
 
         return
-
     end
 
     SelectedHalf.BackgroundColor3 = SelectedDesign.Color
     SelectorText.Text = "COLOR: " .. SelectedDesign.Name .. "  ▼"
-
 end
 
 local function SelectColor(colorName)
@@ -822,9 +1157,6 @@ local function SelectColor(colorName)
     UpdateSelector()
 
     DropdownMenu.Visible = false
-
-    -- Seleccionar no aplica automáticamente la textura.
-    -- Hay que pulsar APLICAR TEXTURA.
 
 end
 
