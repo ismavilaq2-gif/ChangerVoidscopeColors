@@ -1,4 +1,3 @@
-
 --==================================================
 -- VOIDSCOPE CHANGER 2.0
 -- ROJO + AZUL / SELECTOR DESPLEGABLE
@@ -441,8 +440,12 @@ end
 
 --==================================================
 -- ESTELA: TIME LERP + GET COLOR DISTANCE
--- BLANCO <-> COLOR SELECCIONADO
+-- SEIS ESTADOS / 0.20 SEGUNDOS
 --==================================================
+
+local TRAIL_DURATION = 0.20
+local COLOR_STEPS = 6
+local STEP_DURATION = TRAIL_DURATION / COLOR_STEPS
 
 local function AnimateTrail(beam, selectedColor)
 
@@ -461,22 +464,27 @@ local function AnimateTrail(beam, selectedColor)
     StopTrail(beam)
 
     local colors = {
+        selectedColor,
         WHITE,
-        selectedColor
+        selectedColor,
+        WHITE,
+        selectedColor,
+        WHITE
     }
 
     local index = 1
-    local currentColor = colors[1]
-    local targetColor = colors[2]
+    local currentColor = WHITE
+    local targetColor = colors[index]
 
-    local lastUpdate = os.clock()
+    local animationStart = os.clock()
+    local stepStart = animationStart
 
     local connection
 
-    -- INTERPOLACION ORIGINAL
+    -- INTERPOLACION TEMPORAL
     local function TimeLerp(p1, p2, p3)
 
-        return p1 + (p2 - p1) * math.min(p3 / 1, 1)
+        return p1 + (p2 - p1) * math.min(p3, 1)
 
     end
 
@@ -510,25 +518,33 @@ local function AnimateTrail(beam, selectedColor)
             return
         end
 
-        local elapsed = os.clock() - lastUpdate
+        local now = os.clock()
+
+        if now - animationStart >= TRAIL_DURATION then
+            StopTrail(beam)
+            return
+        end
+
+        local elapsed = now - stepStart
+        local alpha = math.min(elapsed / STEP_DURATION, 1)
 
         local nextColor = {
             R = TimeLerp(
                 currentColor.R,
                 targetColor.R,
-                elapsed
+                alpha
             ),
 
             G = TimeLerp(
                 currentColor.G,
                 targetColor.G,
-                elapsed
+                alpha
             ),
 
             B = TimeLerp(
                 currentColor.B,
                 targetColor.B,
-                elapsed
+                alpha
             )
         }
 
@@ -538,22 +554,21 @@ local function AnimateTrail(beam, selectedColor)
             nextColor.B
         )
 
-        if GetColorDistance(color) <= 0.01 then
+        beam.Color = ColorSequence.new(color)
 
-            index += 1
-
-            if not colors[index] then
-                index = 1
-            end
+        if GetColorDistance(color) <= 0.01
+            or elapsed >= STEP_DURATION then
 
             currentColor = targetColor
-            targetColor = colors[index]
+            index += 1
 
-            lastUpdate = os.clock()
+            if colors[index] then
+                targetColor = colors[index]
+            end
+
+            stepStart = now
 
         end
-
-        beam.Color = ColorSequence.new(color)
 
     end)
 
@@ -595,25 +610,8 @@ local function ConnectTool(tool)
 
     end)
 
-    tool.Deactivated:Connect(function()
-
-        local beam = GetBeam(tool)
-
-        if beam then
-            StopTrail(beam)
-        end
-
-    end)
-
-    tool.Unequipped:Connect(function()
-
-        local beam = GetBeam(tool)
-
-        if beam then
-            StopTrail(beam)
-        end
-
-    end)
+    -- NO SE DETIENE AL SOLTAR EL DISPARO.
+    -- LA ANIMACION TERMINA POR SU PROPIA DURACION.
 
     if DesignEnabled then
         ApplyGun(tool)
