@@ -1,10 +1,10 @@
-==================================================
+--==================================================
 -- VOIDSCOPE CHANGER 2.0
 -- ROJO + AZUL + BLANCO / SELECTOR DESPLEGABLE
 -- RELOADANIMATION INTEGRADO
 -- ESTELA: CONTROL SELECTIVO
 -- CONTROL SELECTIVO: CustomBeam.Script
-==================================================
+--==================================================
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
