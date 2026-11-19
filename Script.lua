@@ -1,6 +1,8 @@
+
 --==================================================
 -- VOIDSCOPE CHANGER 2.0
--- ROJO + AZUL + BLANCO / SELECTOR DESPLEGABLE
+-- ROJO + AZUL + BLANCO + AGUAMARINA
+-- SELECTOR DESPLEGABLE CON SCROLL
 -- RELOADANIMATION INTEGRADO
 -- ESTELA: CONTROL SELECTIVO
 -- CONTROL SELECTIVO: CustomBeam.Script
@@ -34,6 +36,11 @@ local COLORS = {
         Texture = "rbxassetid://126161683645981",
         Color = Color3.fromRGB(255, 255, 255),
         DisableBeamScript = true
+    },
+
+    AGUAMARINA = {
+        Texture = "rbxassetid://118286314935916",
+        Color = Color3.fromRGB(127, 255, 212)
     }
 }
 
@@ -249,8 +256,8 @@ local function ApplyObject(object)
             state.BeamScript.Disabled = true
         end
 
-        -- BLANCO: conserva el color original del Beam.
-        -- ROJO Y AZUL: aplican el color seleccionado.
+        -- BLANCO conserva el color original del Beam.
+        -- ROJO, AZUL y AGUAMARINA aplican su propio color.
 
         if not AppliedDesign.DisableBeamScript then
 
@@ -845,10 +852,10 @@ SelectorText.ZIndex = 4
 SelectorText.Parent = DropdownButton
 
 --==================================================
--- MENU DE COLORES
+-- MENU DE COLORES CON SCROLL
 --==================================================
 
-local DropdownMenu = Instance.new("Frame")
+local DropdownMenu = Instance.new("ScrollingFrame")
 DropdownMenu.Name = "ColorOptions"
 DropdownMenu.Size = UDim2.new(1, -36, 0, 112)
 DropdownMenu.Position = UDim2.fromOffset(18, 250)
@@ -856,11 +863,47 @@ DropdownMenu.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 DropdownMenu.BorderSizePixel = 0
 DropdownMenu.Visible = false
 DropdownMenu.ZIndex = 10
+DropdownMenu.CanvasSize = UDim2.new(0, 0, 0, 0)
+DropdownMenu.ScrollingDirection = Enum.ScrollingDirection.Y
+DropdownMenu.ScrollBarThickness = 5
+DropdownMenu.ScrollBarImageColor3 = WHITE
+DropdownMenu.ScrollBarImageTransparency = 0.2
+DropdownMenu.AutomaticCanvasSize = Enum.AutomaticSize.None
 DropdownMenu.Parent = Main
 
 local MenuCorner = Instance.new("UICorner")
 MenuCorner.CornerRadius = UDim.new(0, 7)
 MenuCorner.Parent = DropdownMenu
+
+local MenuPadding = Instance.new("UIPadding")
+MenuPadding.PaddingTop = UDim.new(0, 4)
+MenuPadding.PaddingBottom = UDim.new(0, 4)
+MenuPadding.PaddingLeft = UDim.new(0, 4)
+MenuPadding.PaddingRight = UDim.new(0, 4)
+MenuPadding.Parent = DropdownMenu
+
+local MenuLayout = Instance.new("UIListLayout")
+MenuLayout.FillDirection = Enum.FillDirection.Vertical
+MenuLayout.SortOrder = Enum.SortOrder.LayoutOrder
+MenuLayout.Padding = UDim.new(0, 4)
+MenuLayout.Parent = DropdownMenu
+
+-- Actualizar automáticamente el espacio desplazable.
+
+local function UpdateCanvasSize()
+
+    DropdownMenu.CanvasSize = UDim2.new(
+        0,
+        0,
+        0,
+        MenuLayout.AbsoluteContentSize.Y + 8
+    )
+
+end
+
+MenuLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(
+    UpdateCanvasSize
+)
 
 local function UpdateSelector()
 
@@ -896,14 +939,14 @@ local function SelectColor(colorName)
 
 end
 
-local function CreateColorOption(colorName, y)
+local function CreateColorOption(colorName, order)
 
     local data = COLORS[colorName]
 
     local option = Instance.new("TextButton")
     option.Name = colorName .. "Option"
     option.Size = UDim2.new(1, -8, 0, 32)
-    option.Position = UDim2.fromOffset(4, y)
+    option.LayoutOrder = order
     option.BackgroundColor3 = Color3.fromRGB(42, 42, 42)
     option.BorderSizePixel = 0
     option.Text = ""
@@ -944,9 +987,14 @@ local function CreateColorOption(colorName, y)
 
 end
 
-CreateColorOption("ROJO", 4)
-CreateColorOption("AZUL", 40)
-CreateColorOption("BLANCO", 76)
+-- Orden de los colores en el menú.
+
+CreateColorOption("ROJO", 1)
+CreateColorOption("AZUL", 2)
+CreateColorOption("BLANCO", 3)
+CreateColorOption("AGUAMARINA", 4)
+
+UpdateCanvasSize()
 
 DropdownButton.Activated:Connect(function()
 
