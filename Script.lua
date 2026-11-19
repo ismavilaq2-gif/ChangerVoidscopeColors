@@ -1,10 +1,10 @@
---==================================================
+==================================================
 -- VOIDSCOPE CHANGER 2.0
--- ROJO + AZUL / SELECTOR DESPLEGABLE
+-- ROJO + AZUL + BLANCO / SELECTOR DESPLEGABLE
 -- RELOADANIMATION INTEGRADO
--- ESTELA: COLOR UNIFORME
+-- ESTELA: CONTROL SELECTIVO
 -- CONTROL SELECTIVO: CustomBeam.Script
---==================================================
+==================================================
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -28,6 +28,12 @@ local COLORS = {
     AZUL = {
         Texture = "rbxassetid://116708828152021",
         Color = Color3.fromRGB(0, 45, 160)
+    },
+
+    BLANCO = {
+        Texture = "rbxassetid://126161683645981",
+        Color = Color3.fromRGB(255, 255, 255),
+        DisableBeamScript = true
     }
 }
 
@@ -220,7 +226,7 @@ local function SaveOriginal(object)
 end
 
 --==================================================
--- APLICAR TEXTURA Y COLOR UNIFORME
+-- APLICAR TEXTURA Y COLOR
 --==================================================
 
 local function ApplyObject(object)
@@ -243,9 +249,16 @@ local function ApplyObject(object)
             state.BeamScript.Disabled = true
         end
 
-        state.Beam.Color = ColorSequence.new(
-            AppliedDesign.Color
-        )
+        -- BLANCO: conserva el color original del Beam.
+        -- ROJO Y AZUL: aplican el color seleccionado.
+
+        if not AppliedDesign.DisableBeamScript then
+
+            state.Beam.Color = ColorSequence.new(
+                AppliedDesign.Color
+            )
+
+        end
 
     end
 
@@ -306,7 +319,6 @@ end
 
 --==================================================
 -- DETECCION CONTINUA DEL BEAM
--- COLOR UNIFORME
 --==================================================
 
 local function MonitorVoidscope(tool)
@@ -353,9 +365,15 @@ local function MonitorVoidscope(tool)
 
                             end
 
-                            beam.Color = ColorSequence.new(
-                                AppliedDesign.Color
-                            )
+                            -- BLANCO no modifica Beam.Color.
+
+                            if not AppliedDesign.DisableBeamScript then
+
+                                beam.Color = ColorSequence.new(
+                                    AppliedDesign.Color
+                                )
+
+                            end
 
                         end
 
@@ -832,7 +850,7 @@ SelectorText.Parent = DropdownButton
 
 local DropdownMenu = Instance.new("Frame")
 DropdownMenu.Name = "ColorOptions"
-DropdownMenu.Size = UDim2.new(1, -36, 0, 76)
+DropdownMenu.Size = UDim2.new(1, -36, 0, 112)
 DropdownMenu.Position = UDim2.fromOffset(18, 250)
 DropdownMenu.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 DropdownMenu.BorderSizePixel = 0
@@ -869,7 +887,8 @@ local function SelectColor(colorName)
     SelectedDesign = {
         Name = colorName,
         Texture = colorData.Texture,
-        Color = colorData.Color
+        Color = colorData.Color,
+        DisableBeamScript = colorData.DisableBeamScript or false
     }
 
     UpdateSelector()
@@ -927,6 +946,7 @@ end
 
 CreateColorOption("ROJO", 4)
 CreateColorOption("AZUL", 40)
+CreateColorOption("BLANCO", 76)
 
 DropdownButton.Activated:Connect(function()
 
