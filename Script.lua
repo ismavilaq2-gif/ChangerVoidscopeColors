@@ -1,4 +1,3 @@
-
 --==================================================
 -- VOIDSCOPE CHANGER 2.2
 -- RED + BLUE + WHITE + AQUAMARINE
@@ -274,6 +273,7 @@ end
 
 --==================================================
 -- DISABLE BEAM SCRIPTS
+-- WHITE ONLY
 --==================================================
 
 local function DisableBeamScripts(object, state)
@@ -294,6 +294,7 @@ end
 
 --==================================================
 -- APPLY UNIFORM BEAM COLOR
+-- SAME LOGIC FOR RED, BLUE AND AQUAMARINE
 --==================================================
 
 local function ApplyUniformBeamColor(beam, color)
@@ -324,8 +325,10 @@ local function ApplyObject(object)
 
     CaptureBeamState(object, state)
 
-    -- Disable every script inside CustomBeam.
-    DisableBeamScripts(object, state)
+    -- Only WHITE disables scripts inside CustomBeam.
+    if AppliedDesign.DisableBeamScript then
+        DisableBeamScripts(object, state)
+    end
 
     local beams = GetBeams(object)
 
@@ -334,7 +337,7 @@ local function ApplyObject(object)
         if beam.Parent then
 
             -- WHITE preserves the original beam color.
-            -- Other colors use the same uniform logic as BLUE.
+            -- RED, BLUE and AQUAMARINE use the same uniform logic.
 
             if not AppliedDesign.DisableBeamScript then
 
@@ -441,8 +444,10 @@ local function MonitorVoidscope(tool)
 
                         CaptureBeamState(handle, state)
 
-                        -- Disable scripts added after initial detection.
-                        DisableBeamScripts(handle, state)
+                        -- Only WHITE disables scripts added later.
+                        if AppliedDesign.DisableBeamScript then
+                            DisableBeamScripts(handle, state)
+                        end
 
                         local beams = GetBeams(handle)
 
