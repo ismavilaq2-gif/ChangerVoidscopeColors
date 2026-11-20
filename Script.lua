@@ -1,11 +1,11 @@
 
 --==================================================
--- VOIDSCOPE CHANGER 2.0
--- ROJO + AZUL + BLANCO + AGUAMARINA
--- SELECTOR DESPLEGABLE CON SCROLL
--- RELOADANIMATION INTEGRADO
--- ESTELA: CONTROL SELECTIVO
--- CONTROL SELECTIVO: CustomBeam.Script
+-- VOIDSCOPE CHANGER 2.1
+-- RED + BLUE + WHITE + AQUAMARINE
+-- SCROLLABLE COLOR SELECTOR
+-- RELOADANIMATION INTEGRATED
+-- SPEED SETTINGS INTERFACE
+-- UNIFORM BEAM COLOR SYSTEM
 --==================================================
 
 local Players = game:GetService("Players")
@@ -16,29 +16,29 @@ local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 
 --==================================================
--- CONFIGURACION
+-- CONFIGURATION
 --==================================================
 
 local ORIGINAL_ID = "rbxassetid://125806303939871"
 
 local COLORS = {
-    ROJO = {
+    RED = {
         Texture = "rbxassetid://79908965595599",
         Color = Color3.fromRGB(255, 0, 0)
     },
 
-    AZUL = {
+    BLUE = {
         Texture = "rbxassetid://116708828152021",
         Color = Color3.fromRGB(0, 45, 160)
     },
 
-    BLANCO = {
+    WHITE = {
         Texture = "rbxassetid://126161683645981",
         Color = Color3.fromRGB(255, 255, 255),
         DisableBeamScript = true
     },
 
-    AGUAMARINA = {
+    AQUAMARINE = {
         Texture = "rbxassetid://118286314935916",
         Color = Color3.fromRGB(127, 255, 212)
     }
@@ -53,6 +53,11 @@ local COOLDOWN_DURATION = 2
 
 local ReloadAnimationEnabled = false
 
+-- Speed settings
+local SpeedToggleKey = "R"
+local AirSpeed = 250
+local SpeedEnabled = false
+
 local actionSound = Instance.new("Sound")
 actionSound.Name = "ReloadAnimationSound"
 actionSound.SoundId = SOUND_ID
@@ -60,7 +65,7 @@ actionSound.Volume = 1
 actionSound.Parent = SoundService
 
 --==================================================
--- REGISTROS
+-- REGISTRIES
 --==================================================
 
 local VerifiedObjects = {}
@@ -76,7 +81,7 @@ local MenuVisible = true
 local Minimized = false
 
 --==================================================
--- IDENTIFICACION DE VOIDSCOPE
+-- IDENTIFY VOIDSCOPE
 --==================================================
 
 local function IsVerifiedMesh(object)
@@ -94,7 +99,6 @@ local function IsVerifiedMesh(object)
     end
 
     VerifiedObjects[object] = true
-
     return true
 end
 
@@ -104,7 +108,7 @@ local function VerifyGun(tool)
         return false
     end
 
-    if tool.Name ~= "Gun" then
+    if tool.Name ~= TARGET_TOOL_NAME then
         return false
     end
 
@@ -141,13 +145,13 @@ local function VerifyDisplay(display)
 end
 
 --==================================================
--- LOCALIZAR BEAM Y SU SCRIPT
+-- LOCATE BEAMS
 --==================================================
 
-local function GetBeam(object)
+local function GetBeams(object)
 
     if not object then
-        return nil
+        return {}
     end
 
     local parent = object
@@ -157,16 +161,29 @@ local function GetBeam(object)
     end
 
     if not parent then
-        return nil
+        return {}
     end
 
-    local beam = parent:FindFirstChild("CustomBeam", true)
+    local customBeam = parent:FindFirstChild("CustomBeam", true)
+    local results = {}
 
-    if beam and beam:IsA("Beam") then
-        return beam
+    if not customBeam then
+        return results
     end
 
-    return nil
+    if customBeam:IsA("Beam") then
+        table.insert(results, customBeam)
+    end
+
+    for _, descendant in ipairs(customBeam:GetDescendants()) do
+
+        if descendant:IsA("Beam") then
+            table.insert(results, descendant)
+        end
+
+    end
+
+    return results
 end
 
 local function GetOriginalBeamScript(beam)
@@ -185,28 +202,28 @@ local function GetOriginalBeamScript(beam)
 end
 
 --==================================================
--- GUARDAR ESTADO ORIGINAL
+-- SAVE ORIGINAL STATE
 --==================================================
 
 local function CaptureBeamState(object, state)
 
-    local beam = GetBeam(object)
+    local beams = GetBeams(object)
 
-    if not beam then
-        return
-    end
+    for _, beam in ipairs(beams) do
 
-    if state.Beam ~= beam then
+        if not state.Beams[beam] then
 
-        state.Beam = beam
-        state.BeamColor = beam.Color
+            local originalScript = GetOriginalBeamScript(beam)
 
-        local originalScript = GetOriginalBeamScript(beam)
+            state.Beams[beam] = {
+                Color = beam.Color,
+                Script = originalScript,
+                ScriptDisabled = originalScript
+                    and originalScript.Disabled
+                    or nil
+            }
 
-        state.BeamScript = originalScript
-        state.BeamScriptDisabled = originalScript
-            and originalScript.Disabled
-            or nil
+        end
 
     end
 
@@ -220,10 +237,7 @@ local function SaveOriginal(object)
 
     local state = {
         TextureID = object.TextureID,
-        Beam = nil,
-        BeamColor = nil,
-        BeamScript = nil,
-        BeamScriptDisabled = nil
+        Beams = {}
     }
 
     OriginalStates[object] = state
@@ -233,7 +247,7 @@ local function SaveOriginal(object)
 end
 
 --==================================================
--- APLICAR TEXTURA Y COLOR
+-- APPLY TEXTURE AND BEAM COLOR
 --==================================================
 
 local function ApplyObject(object)
@@ -250,20 +264,32 @@ local function ApplyObject(object)
 
     CaptureBeamState(object, state)
 
-    if state.Beam and state.Beam.Parent then
+    local beams = GetBeams(object)
 
-        if state.BeamScript and state.BeamScript.Parent then
-            state.BeamScript.Disabled = true
-        end
+    for _, beam in ipairs(beams) do
 
-        -- BLANCO conserva el color original del Beam.
-        -- ROJO, AZUL y AGUAMARINA aplican su propio color.
+        local beamState = state.Beams[beam]
 
-        if not AppliedDesign.DisableBeamScript then
+        if beam.Parent then
 
-            state.Beam.Color = ColorSequence.new(
-                AppliedDesign.Color
-            )
+            if beamState
+                and beamState.Script
+                and beamState.Script.Parent then
+
+                beamState.Script.Disabled = true
+
+            end
+
+            -- WHITE preserves the original beam color.
+            -- Other colors use the same uniform color logic as BLUE.
+
+            if not AppliedDesign.DisableBeamScript then
+
+                beam.Color = ColorSequence.new(
+                    AppliedDesign.Color
+                )
+
+            end
 
         end
 
@@ -284,7 +310,7 @@ local function ApplyGun(tool)
 end
 
 --==================================================
--- VERIFICAR GUNDISPLAY
+-- VERIFY GUN DISPLAY
 --==================================================
 
 local function GetVerifiedDisplays()
@@ -325,7 +351,7 @@ local function ApplyDisplays()
 end
 
 --==================================================
--- DETECCION CONTINUA DEL BEAM
+-- CONTINUOUS BEAM MONITORING
 --==================================================
 
 local function MonitorVoidscope(tool)
@@ -361,24 +387,29 @@ local function MonitorVoidscope(tool)
 
                         CaptureBeamState(handle, state)
 
-                        local beam = GetBeam(handle)
+                        local beams = GetBeams(handle)
 
-                        if beam then
+                        for _, beam in ipairs(beams) do
 
-                            if state.BeamScript
-                                and state.BeamScript.Parent then
+                            local beamState = state.Beams[beam]
 
-                                state.BeamScript.Disabled = true
+                            if beam.Parent then
 
-                            end
+                                if beamState
+                                    and beamState.Script
+                                    and beamState.Script.Parent then
 
-                            -- BLANCO no modifica Beam.Color.
+                                    beamState.Script.Disabled = true
 
-                            if not AppliedDesign.DisableBeamScript then
+                                end
 
-                                beam.Color = ColorSequence.new(
-                                    AppliedDesign.Color
-                                )
+                                if not AppliedDesign.DisableBeamScript then
+
+                                    beam.Color = ColorSequence.new(
+                                        AppliedDesign.Color
+                                    )
+
+                                end
 
                             end
 
@@ -401,7 +432,7 @@ local function MonitorVoidscope(tool)
 end
 
 --==================================================
--- APLICAR DISEÑO COMPLETO
+-- APPLY COMPLETE DESIGN
 --==================================================
 
 local function ApplyDesign()
@@ -482,7 +513,7 @@ local function ApplyDesign()
 end
 
 --==================================================
--- RESTAURAR ORIGINAL
+-- RESTORE ORIGINAL
 --==================================================
 
 local function RestoreOriginal()
@@ -496,12 +527,16 @@ local function RestoreOriginal()
             object.TextureID = state.TextureID
         end
 
-        if state.Beam and state.Beam.Parent then
-            state.Beam.Color = state.BeamColor
-        end
+        for beam, beamState in pairs(state.Beams) do
 
-        if state.BeamScript and state.BeamScript.Parent then
-            state.BeamScript.Disabled = state.BeamScriptDisabled
+            if beam and beam.Parent then
+                beam.Color = beamState.Color
+            end
+
+            if beamState.Script and beamState.Script.Parent then
+                beamState.Script.Disabled = beamState.ScriptDisabled
+            end
+
         end
 
     end
@@ -512,7 +547,7 @@ local function RestoreOriginal()
 end
 
 --==================================================
--- SISTEMA RELOADANIMATION
+-- RELOADANIMATION SYSTEM
 --==================================================
 
 local function SetupReloadAnimation(character)
@@ -570,7 +605,7 @@ local function SetupReloadAnimation(character)
 end
 
 --==================================================
--- DETECTAR VOIDSCOPE
+-- DETECT VOIDSCOPE
 --==================================================
 
 local function DetectVoidscope()
@@ -618,7 +653,7 @@ local function DetectVoidscope()
 end
 
 --==================================================
--- CONECTAR HERRAMIENTA
+-- CONNECT TOOL
 --==================================================
 
 local function ConnectTool(tool)
@@ -641,7 +676,91 @@ local function ConnectTool(tool)
 end
 
 --==================================================
--- INTERFAZ
+-- SPEED SETTINGS
+--==================================================
+
+local SpeedHumanoid = nil
+local SpeedRootPart = nil
+local NormalSpeed = 16
+local SpaceHeld = false
+local StateConnection = nil
+
+local function CleanupSpeed()
+
+    if StateConnection then
+        StateConnection:Disconnect()
+        StateConnection = nil
+    end
+
+    if SpeedHumanoid and SpeedHumanoid.Parent then
+        SpeedHumanoid.WalkSpeed = NormalSpeed
+    end
+
+    SpeedHumanoid = nil
+    SpeedRootPart = nil
+
+end
+
+local function SetupSpeed(character)
+
+    CleanupSpeed()
+
+    local humanoid = character:WaitForChild("Humanoid")
+    local rootPart = character:WaitForChild("HumanoidRootPart")
+
+    if humanoid.RigType ~= Enum.HumanoidRigType.R15 then
+        return
+    end
+
+    SpeedHumanoid = humanoid
+    SpeedRootPart = rootPart
+    NormalSpeed = humanoid.WalkSpeed
+
+    StateConnection = humanoid.StateChanged:Connect(function(_, state)
+
+        if not SpeedEnabled then
+            return
+        end
+
+        if state == Enum.HumanoidStateType.Jumping
+            or state == Enum.HumanoidStateType.Freefall then
+
+            humanoid.WalkSpeed = AirSpeed
+
+        elseif state == Enum.HumanoidStateType.Landed
+            or state == Enum.HumanoidStateType.Running then
+
+            humanoid.WalkSpeed = NormalSpeed
+
+        end
+
+    end)
+
+end
+
+local function ToggleSpeed()
+
+    SpeedEnabled = not SpeedEnabled
+
+    if SpeedEnabled then
+
+        if Player.Character then
+            SetupSpeed(Player.Character)
+        end
+
+        print("Speed system enabled")
+
+    else
+
+        CleanupSpeed()
+        print("Speed system disabled")
+
+    end
+
+end
+
+--==================================================
+-- GUI
 --==================================================
 
 local GUI = Instance.new("ScreenGui")
@@ -651,8 +770,8 @@ GUI.Parent = PlayerGui
 
 local Main = Instance.new("Frame")
 Main.Name = "Main"
-Main.Size = UDim2.fromOffset(310, 385)
-Main.Position = UDim2.new(0.5, -155, 0.5, -192)
+Main.Size = UDim2.fromOffset(310, 485)
+Main.Position = UDim2.new(0.5, -155, 0.5, -242)
 Main.BackgroundColor3 = Color3.fromRGB(23, 23, 23)
 Main.BorderSizePixel = 0
 Main.Active = true
@@ -668,15 +787,15 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -80, 0, 42)
 Title.Position = UDim2.fromOffset(12, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "VOID SCOPE / CHANGER"
+Title.Text = "VOID SCOPE / CHANGER 2.1"
 Title.TextColor3 = WHITE
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 15
+Title.TextSize = 14
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Main
 
 --==================================================
--- CREAR BOTONES
+-- CREATE BUTTONS
 --==================================================
 
 local function CreateButton(name, text, y, callback)
@@ -709,27 +828,27 @@ local RestoreButton
 local ReloadAnimationButton
 
 --==================================================
--- DETECTAR
+-- DETECT BUTTON
 --==================================================
 
 DetectButton = CreateButton(
     "DetectButton",
-    "DETECTAR VOIDSCOPE",
+    "DETECT VOIDSCOPE",
     50,
     function()
 
         local found, displays = DetectVoidscope()
 
         if found or displays > 0 then
-            DetectButton.Text = "VOIDSCOPE DETECTADA"
+            DetectButton.Text = "VOIDSCOPE DETECTED"
         else
-            DetectButton.Text = "NO SE ENCONTRO VOIDSCOPE"
+            DetectButton.Text = "VOIDSCOPE NOT FOUND"
         end
 
         task.delay(2, function()
 
             if DetectButton.Parent then
-                DetectButton.Text = "DETECTAR VOIDSCOPE"
+                DetectButton.Text = "DETECT VOIDSCOPE"
             end
 
         end)
@@ -738,12 +857,12 @@ DetectButton = CreateButton(
 )
 
 --==================================================
--- APLICAR TEXTURA
+-- APPLY TEXTURE BUTTON
 --==================================================
 
 ApplyButton = CreateButton(
     "ApplyButton",
-    "APLICAR TEXTURA",
+    "APPLY TEXTURE",
     100,
     function()
 
@@ -751,22 +870,22 @@ ApplyButton = CreateButton(
 
         if success then
 
-            ApplyButton.Text = "DISEÑO APLICADO"
+            ApplyButton.Text = "DESIGN APPLIED"
 
         elseif reason == "SELECT_COLOR" then
 
-            ApplyButton.Text = "SELECCIONA UN COLOR"
+            ApplyButton.Text = "SELECT A COLOR"
 
         else
 
-            ApplyButton.Text = "VOIDSCOPE NO DETECTADA"
+            ApplyButton.Text = "VOIDSCOPE NOT FOUND"
 
         end
 
         task.delay(2, function()
 
             if ApplyButton.Parent then
-                ApplyButton.Text = "APLICAR TEXTURA"
+                ApplyButton.Text = "APPLY TEXTURE"
             end
 
         end)
@@ -775,23 +894,23 @@ ApplyButton = CreateButton(
 )
 
 --==================================================
--- RESTAURAR ORIGINAL
+-- RESTORE ORIGINAL BUTTON
 --==================================================
 
 RestoreButton = CreateButton(
     "RestoreButton",
-    "RESTAURAR ORIGINAL",
+    "RESTORE ORIGINAL",
     150,
     function()
 
         RestoreOriginal()
 
-        RestoreButton.Text = "ORIGINAL RESTAURADO"
+        RestoreButton.Text = "ORIGINAL RESTORED"
 
         task.delay(2, function()
 
             if RestoreButton.Parent then
-                RestoreButton.Text = "RESTAURAR ORIGINAL"
+                RestoreButton.Text = "RESTORE ORIGINAL"
             end
 
         end)
@@ -800,7 +919,7 @@ RestoreButton = CreateButton(
 )
 
 --==================================================
--- SELECTOR DESPLEGABLE DE COLORES
+-- COLOR DROPDOWN
 --==================================================
 
 local DropdownButton = Instance.new("TextButton")
@@ -844,7 +963,7 @@ BlackCorner.Parent = BlackHalf
 local SelectorText = Instance.new("TextLabel")
 SelectorText.Size = UDim2.new(1, 0, 1, 0)
 SelectorText.BackgroundTransparency = 1
-SelectorText.Text = "SELECCIONAR COLOR  ▼"
+SelectorText.Text = "SELECT COLOR  ▼"
 SelectorText.TextColor3 = WHITE
 SelectorText.Font = Enum.Font.GothamBold
 SelectorText.TextSize = 13
@@ -852,7 +971,7 @@ SelectorText.ZIndex = 4
 SelectorText.Parent = DropdownButton
 
 --==================================================
--- MENU DE COLORES CON SCROLL
+-- SCROLLABLE COLOR MENU
 --==================================================
 
 local DropdownMenu = Instance.new("ScrollingFrame")
@@ -888,8 +1007,6 @@ MenuLayout.SortOrder = Enum.SortOrder.LayoutOrder
 MenuLayout.Padding = UDim.new(0, 4)
 MenuLayout.Parent = DropdownMenu
 
--- Actualizar automáticamente el espacio desplazable.
-
 local function UpdateCanvasSize()
 
     DropdownMenu.CanvasSize = UDim2.new(
@@ -910,13 +1027,14 @@ local function UpdateSelector()
     if not SelectedDesign then
 
         SelectedHalf.BackgroundColor3 = BLACK
-        SelectorText.Text = "SELECCIONAR COLOR  ▼"
+        SelectorText.Text = "SELECT COLOR  ▼"
 
         return
     end
 
     SelectedHalf.BackgroundColor3 = SelectedDesign.Color
     SelectorText.Text = "COLOR: " .. SelectedDesign.Name .. "  ▼"
+
 end
 
 local function SelectColor(colorName)
@@ -987,12 +1105,10 @@ local function CreateColorOption(colorName, order)
 
 end
 
--- Orden de los colores en el menú.
-
-CreateColorOption("ROJO", 1)
-CreateColorOption("AZUL", 2)
-CreateColorOption("BLANCO", 3)
-CreateColorOption("AGUAMARINA", 4)
+CreateColorOption("RED", 1)
+CreateColorOption("BLUE", 2)
+CreateColorOption("WHITE", 3)
+CreateColorOption("AQUAMARINE", 4)
 
 UpdateCanvasSize()
 
@@ -1001,17 +1117,21 @@ DropdownButton.Activated:Connect(function()
     DropdownMenu.Visible = not DropdownMenu.Visible
 
     if DropdownMenu.Visible then
+
         SelectorText.Text = SelectedDesign
             and ("COLOR: " .. SelectedDesign.Name .. "  ▲")
-            or "SELECCIONAR COLOR  ▲"
+            or "SELECT COLOR  ▲"
+
     else
+
         UpdateSelector()
+
     end
 
 end)
 
 --==================================================
--- BOTON RELOADANIMATION
+-- RELOADANIMATION BUTTON
 --==================================================
 
 ReloadAnimationButton = CreateButton(
@@ -1024,7 +1144,7 @@ ReloadAnimationButton = CreateButton(
 
         if ReloadAnimationEnabled then
 
-            ReloadAnimationButton.Text = "RELOADANIMATION: NOACTIVATE"
+            ReloadAnimationButton.Text = "RELOADANIMATION: DESACTIVATE"
             ReloadAnimationButton.TextColor3 = Color3.fromRGB(0, 255, 0)
 
         else
@@ -1041,7 +1161,125 @@ ReloadAnimationButton.TextSize = 11
 ReloadAnimationButton.TextColor3 = Color3.fromRGB(255, 0, 0)
 
 --==================================================
--- MINIMIZAR Y CERRAR
+-- SPEED SETTINGS UI
+--==================================================
+
+local SpeedTitle = Instance.new("TextLabel")
+SpeedTitle.Name = "SpeedSettingsTitle"
+SpeedTitle.Size = UDim2.new(1, -36, 0, 25)
+SpeedTitle.Position = UDim2.fromOffset(18, 385)
+SpeedTitle.BackgroundTransparency = 1
+SpeedTitle.Text = "SPEED SETTINGS"
+SpeedTitle.TextColor3 = WHITE
+SpeedTitle.Font = Enum.Font.GothamBold
+SpeedTitle.TextSize = 12
+SpeedTitle.TextXAlignment = Enum.TextXAlignment.Left
+SpeedTitle.Parent = Main
+
+local function CreateSettingRow(name, labelText, defaultText, y)
+
+    local label = Instance.new("TextLabel")
+    label.Name = name .. "Label"
+    label.Size = UDim2.fromOffset(125, 32)
+    label.Position = UDim2.fromOffset(18, y)
+    label.BackgroundTransparency = 1
+    label.Text = labelText
+    label.TextColor3 = WHITE
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 10
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = Main
+
+    local box = Instance.new("TextBox")
+    box.Name = name .. "Input"
+    box.Size = UDim2.fromOffset(130, 32)
+    box.Position = UDim2.fromOffset(160, y)
+    box.BackgroundColor3 = Color3.fromRGB(42, 42, 42)
+    box.BorderSizePixel = 0
+    box.Text = defaultText
+    box.PlaceholderText = defaultText
+    box.TextColor3 = WHITE
+    box.PlaceholderColor3 = Color3.fromRGB(160, 160, 160)
+    box.Font = Enum.Font.GothamBold
+    box.TextSize = 12
+    box.ClearTextOnFocus = false
+    box.Parent = Main
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = box
+
+    return box
+end
+
+local KeyInput = CreateSettingRow(
+    "SpeedKey",
+    "TOGGLE KEY",
+    "R",
+    410
+)
+
+local AirSpeedInput = CreateSettingRow(
+    "AirSpeed",
+    "AIR SPEED",
+    "250",
+    450
+)
+
+KeyInput.FocusLost:Connect(function(enterPressed)
+
+    if not enterPressed then
+        KeyInput.Text = SpeedToggleKey
+        return
+    end
+
+    local newKey = string.upper(
+        string.gsub(KeyInput.Text, "%s+", "")
+    )
+
+    if #newKey == 1
+        and string.match(newKey, "^[A-Z]$")
+        and Enum.KeyCode[newKey] then
+
+        SpeedToggleKey = newKey
+        KeyInput.Text = newKey
+
+        print("Speed toggle key changed to " .. newKey)
+
+    else
+
+        KeyInput.Text = SpeedToggleKey
+
+    end
+
+end)
+
+AirSpeedInput.FocusLost:Connect(function(enterPressed)
+
+    if not enterPressed then
+        AirSpeedInput.Text = tostring(AirSpeed)
+        return
+    end
+
+    local newSpeed = tonumber(AirSpeedInput.Text)
+
+    if newSpeed and newSpeed > 0 and newSpeed <= 1000 then
+
+        AirSpeed = newSpeed
+        AirSpeedInput.Text = tostring(AirSpeed)
+
+        print("AirSpeed changed to " .. tostring(AirSpeed))
+
+    else
+
+        AirSpeedInput.Text = tostring(AirSpeed)
+
+    end
+
+end)
+
+--==================================================
+-- MINIMIZE AND CLOSE
 --==================================================
 
 local Minimize = Instance.new("TextButton")
@@ -1104,24 +1342,25 @@ Minimize.Activated:Connect(function()
 
     Main.Size = Minimized
         and UDim2.fromOffset(310, 42)
-        or UDim2.fromOffset(310, 385)
+        or UDim2.fromOffset(310, 485)
 
 end)
 
 Close.Activated:Connect(function()
 
     RestoreOriginal()
+    CleanupSpeed()
     GUI:Destroy()
 
 end)
 
 --==================================================
--- TECLA G
+-- INPUT HANDLING
 --==================================================
 
 UserInputService.InputBegan:Connect(function(input, processed)
 
-    if processed then
+    if processed or UserInputService:GetFocusedTextBox() then
         return
     end
 
@@ -1130,17 +1369,80 @@ UserInputService.InputBegan:Connect(function(input, processed)
         MenuVisible = not MenuVisible
         Main.Visible = MenuVisible
 
+        return
+    end
+
+    local configuredKey = Enum.KeyCode[SpeedToggleKey]
+
+    if configuredKey and input.KeyCode == configuredKey then
+        ToggleSpeed()
+        return
+    end
+
+    if input.KeyCode == Enum.KeyCode.Space then
+
+        if SpaceHeld then
+            return
+        end
+
+        SpaceHeld = true
+
+        if not SpeedEnabled
+            or not SpeedHumanoid
+            or not SpeedRootPart then
+
+            return
+        end
+
+        if SpeedHumanoid.FloorMaterial == Enum.Material.Air then
+
+            local jumpVelocity
+
+            if SpeedHumanoid.UseJumpPower then
+
+                jumpVelocity = SpeedHumanoid.JumpPower
+
+            else
+
+                jumpVelocity = math.sqrt(
+                    2 * workspace.Gravity * SpeedHumanoid.JumpHeight
+                )
+
+            end
+
+            local velocity = SpeedRootPart.AssemblyLinearVelocity
+
+            SpeedRootPart.AssemblyLinearVelocity = Vector3.new(
+                velocity.X,
+                jumpVelocity,
+                velocity.Z
+            )
+
+        end
+
+    end
+
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+
+    if input.KeyCode == Enum.KeyCode.Space then
+        SpaceHeld = false
     end
 
 end)
 
 --==================================================
--- DETECCION AUTOMATICA
+-- CHARACTER SETUP
 --==================================================
 
 local function SetupCharacter(character)
 
     SetupReloadAnimation(character)
+
+    if SpeedEnabled then
+        SetupSpeed(character)
+    end
 
     character.ChildAdded:Connect(function(object)
 
@@ -1176,10 +1478,15 @@ Backpack.ChildAdded:Connect(function(object)
 
 end)
 
-Player.CharacterAdded:Connect(SetupCharacter)
+Player.CharacterAdded:Connect(function(character)
+
+    SpaceHeld = false
+    SetupCharacter(character)
+
+end)
 
 if Player.Character then
     SetupCharacter(Player.Character)
 end
 
-print("[Voidscope Changer 2.0] Cargado correctamente.")
+print("[Voidscope Changer 2.1] Loaded successfully.")
