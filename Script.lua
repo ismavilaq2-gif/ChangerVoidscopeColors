@@ -1,6 +1,6 @@
 
 --==================================================
--- VOIDSCOPE CHANGER 2.1
+-- VOIDSCOPE CHANGER 2.2
 -- RED + BLUE + WHITE + AQUAMARINE
 -- SCROLLABLE COLOR SELECTOR
 -- RELOADANIMATION INTEGRATED
@@ -145,13 +145,13 @@ local function VerifyDisplay(display)
 end
 
 --==================================================
--- LOCATE BEAMS
+-- LOCATE CUSTOM BEAM
 --==================================================
 
-local function GetBeams(object)
+local function GetCustomBeam(object)
 
     if not object then
-        return {}
+        return nil
     end
 
     local parent = object
@@ -161,10 +161,19 @@ local function GetBeams(object)
     end
 
     if not parent then
-        return {}
+        return nil
     end
 
-    local customBeam = parent:FindFirstChild("CustomBeam", true)
+    return parent:FindFirstChild("CustomBeam", true)
+end
+
+--==================================================
+-- LOCATE ALL BEAMS
+--==================================================
+
+local function GetBeams(object)
+
+    local customBeam = GetCustomBeam(object)
     local results = {}
 
     if not customBeam then
@@ -186,19 +195,31 @@ local function GetBeams(object)
     return results
 end
 
-local function GetOriginalBeamScript(beam)
+--==================================================
+-- LOCATE ALL BEAM SCRIPTS
+--==================================================
 
-    if not beam then
-        return nil
+local function GetBeamScripts(object)
+
+    local customBeam = GetCustomBeam(object)
+    local results = {}
+
+    if not customBeam then
+        return results
     end
 
-    local scriptObject = beam:FindFirstChild("Script")
+    for _, descendant in ipairs(customBeam:GetDescendants()) do
 
-    if scriptObject and scriptObject:IsA("Script") then
-        return scriptObject
+        if descendant:IsA("Script")
+            or descendant:IsA("LocalScript") then
+
+            table.insert(results, descendant)
+
+        end
+
     end
 
-    return nil
+    return results
 end
 
 --==================================================
@@ -213,16 +234,20 @@ local function CaptureBeamState(object, state)
 
         if not state.Beams[beam] then
 
-            local originalScript = GetOriginalBeamScript(beam)
-
             state.Beams[beam] = {
-                Color = beam.Color,
-                Script = originalScript,
-                ScriptDisabled = originalScript
-                    and originalScript.Disabled
-                    or nil
+                Color = beam.Color
             }
 
+        end
+
+    end
+
+    local scripts = GetBeamScripts(object)
+
+    for _, scriptObject in ipairs(scripts) do
+
+        if state.Scripts[scriptObject] == nil then
+            state.Scripts[scriptObject] = scriptObject.Disabled
         end
 
     end
@@ -237,12 +262,47 @@ local function SaveOriginal(object)
 
     local state = {
         TextureID = object.TextureID,
-        Beams = {}
+        Beams = {},
+        Scripts = {}
     }
 
     OriginalStates[object] = state
 
     CaptureBeamState(object, state)
+
+end
+
+--==================================================
+-- DISABLE BEAM SCRIPTS
+--==================================================
+
+local function DisableBeamScripts(object, state)
+
+    local scripts = GetBeamScripts(object)
+
+    for _, scriptObject in ipairs(scripts) do
+
+        if state.Scripts[scriptObject] == nil then
+            state.Scripts[scriptObject] = scriptObject.Disabled
+        end
+
+        scriptObject.Disabled = true
+
+    end
+
+end
+
+--==================================================
+-- APPLY UNIFORM BEAM COLOR
+--==================================================
+
+local function ApplyUniformBeamColor(beam, color)
+
+    if not beam or not beam.Parent then
+        return
+    end
+
+    beam.Color = ColorSequence.new(color)
 
 end
 
@@ -264,28 +324,22 @@ local function ApplyObject(object)
 
     CaptureBeamState(object, state)
 
+    -- Disable every script inside CustomBeam.
+    DisableBeamScripts(object, state)
+
     local beams = GetBeams(object)
 
     for _, beam in ipairs(beams) do
 
-        local beamState = state.Beams[beam]
-
         if beam.Parent then
 
-            if beamState
-                and beamState.Script
-                and beamState.Script.Parent then
-
-                beamState.Script.Disabled = true
-
-            end
-
             -- WHITE preserves the original beam color.
-            -- Other colors use the same uniform color logic as BLUE.
+            -- Other colors use the same uniform logic as BLUE.
 
             if not AppliedDesign.DisableBeamScript then
 
-                beam.Color = ColorSequence.new(
+                ApplyUniformBeamColor(
+                    beam,
                     AppliedDesign.Color
                 )
 
@@ -387,25 +441,19 @@ local function MonitorVoidscope(tool)
 
                         CaptureBeamState(handle, state)
 
+                        -- Disable scripts added after initial detection.
+                        DisableBeamScripts(handle, state)
+
                         local beams = GetBeams(handle)
 
                         for _, beam in ipairs(beams) do
 
-                            local beamState = state.Beams[beam]
-
                             if beam.Parent then
-
-                                if beamState
-                                    and beamState.Script
-                                    and beamState.Script.Parent then
-
-                                    beamState.Script.Disabled = true
-
-                                end
 
                                 if not AppliedDesign.DisableBeamScript then
 
-                                    beam.Color = ColorSequence.new(
+                                    ApplyUniformBeamColor(
+                                        beam,
                                         AppliedDesign.Color
                                     )
 
@@ -533,8 +581,12 @@ local function RestoreOriginal()
                 beam.Color = beamState.Color
             end
 
-            if beamState.Script and beamState.Script.Parent then
-                beamState.Script.Disabled = beamState.ScriptDisabled
+        end
+
+        for scriptObject, wasDisabled in pairs(state.Scripts) do
+
+            if scriptObject and scriptObject.Parent then
+                scriptObject.Disabled = wasDisabled
             end
 
         end
@@ -787,7 +839,7 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -80, 0, 42)
 Title.Position = UDim2.fromOffset(12, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "VOID SCOPE / CHANGER 2.1"
+Title.Text = "VOID SCOPE / CHANGER 2.2"
 Title.TextColor3 = WHITE
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 14
@@ -1489,4 +1541,4 @@ if Player.Character then
     SetupCharacter(Player.Character)
 end
 
-print("[Voidscope Changer 2.1] Loaded successfully.")
+print("[Voidscope Changer 2.2] Loaded successfully.")
