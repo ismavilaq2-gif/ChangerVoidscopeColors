@@ -1,6 +1,6 @@
 
 --==================================================
--- VOIDSCOPE CHANGER 2.3
+-- VOIDSCOPE CHANGER 2.4
 -- RED + BLUE + WHITE + AQUAMARINE
 -- SCROLLABLE COLOR SELECTOR
 -- RELOADANIMATION INTEGRATED
@@ -8,6 +8,7 @@
 -- KEYBIND ENABLE/DISABLE
 -- OLD SHIFTLOCK INTEGRATED
 -- UNIFORM BEAM COLOR SYSTEM
+-- CUSTOMBEAM SCRIPTS DISABLED FOR ALL COLORS
 --==================================================
 
 local Players = game:GetService("Players")
@@ -27,23 +28,27 @@ local ORIGINAL_ID = "rbxassetid://125806303939871"
 local COLORS = {
     RED = {
         Texture = "rbxassetid://79908965595599",
-        Color = Color3.fromRGB(255, 0, 0)
+        Color = Color3.fromRGB(255, 0, 0),
+        DisableBeamScript = true
     },
 
     BLUE = {
         Texture = "rbxassetid://116708828152021",
-        Color = Color3.fromRGB(0, 45, 160)
+        Color = Color3.fromRGB(0, 45, 160),
+        DisableBeamScript = true
     },
 
     WHITE = {
         Texture = "rbxassetid://126161683645981",
         Color = Color3.fromRGB(255, 255, 255),
-        DisableBeamScript = true
+        DisableBeamScript = true,
+        PreserveBeamColor = true
     },
 
     AQUAMARINE = {
         Texture = "rbxassetid://118286314935916",
-        Color = Color3.fromRGB(127, 255, 212)
+        Color = Color3.fromRGB(127, 255, 212),
+        DisableBeamScript = true
     }
 }
 
@@ -284,8 +289,8 @@ local function SaveOriginal(object)
 end
 
 --==================================================
--- DISABLE BEAM SCRIPTS
--- WHITE ONLY
+-- DISABLE ALL CUSTOMBEAM SCRIPTS
+-- ALL COLORS
 --==================================================
 
 local function DisableBeamScripts(object, state)
@@ -316,6 +321,7 @@ local function ApplyUniformBeamColor(beam, color)
 
     -- Constant color across the entire Beam.
     -- No color gradient is introduced here.
+
     beam.Color = ColorSequence.new(color, color)
 
 end
@@ -338,18 +344,21 @@ local function ApplyObject(object)
 
     CaptureBeamState(object, state)
 
-    -- Only WHITE disables scripts inside CustomBeam.
+    -- First disable CustomBeam scripts for every color.
     if AppliedDesign.DisableBeamScript then
         DisableBeamScripts(object, state)
     end
 
-    local beams = GetBeams(object)
+    -- WHITE keeps its special original Beam color.
+    -- RED, BLUE and AQUAMARINE receive their uniform color.
 
-    for _, beam in ipairs(beams) do
+    if not AppliedDesign.PreserveBeamColor then
 
-        if beam.Parent then
+        local beams = GetBeams(object)
 
-            if not AppliedDesign.DisableBeamScript then
+        for _, beam in ipairs(beams) do
+
+            if beam.Parent then
 
                 ApplyUniformBeamColor(
                     beam,
@@ -454,18 +463,19 @@ local function MonitorVoidscope(tool)
 
                         CaptureBeamState(handle, state)
 
-                        -- Only WHITE disables scripts added later.
+                        -- Disable scripts added later as well.
                         if AppliedDesign.DisableBeamScript then
                             DisableBeamScripts(handle, state)
                         end
 
-                        local beams = GetBeams(handle)
+                        -- WHITE preserves its special Beam behavior.
+                        if not AppliedDesign.PreserveBeamColor then
 
-                        for _, beam in ipairs(beams) do
+                            local beams = GetBeams(handle)
 
-                            if beam.Parent then
+                            for _, beam in ipairs(beams) do
 
-                                if not AppliedDesign.DisableBeamScript then
+                                if beam.Parent then
 
                                     ApplyUniformBeamColor(
                                         beam,
@@ -981,7 +991,7 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -80, 0, 42)
 Title.Position = UDim2.fromOffset(12, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "VOID SCOPE / CHANGER 2.3"
+Title.Text = "VOID SCOPE / CHANGER 2.4"
 Title.TextColor3 = WHITE
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 14
@@ -1243,7 +1253,8 @@ local function SelectColor(colorName)
         Name = colorName,
         Texture = colorData.Texture,
         Color = colorData.Color,
-        DisableBeamScript = colorData.DisableBeamScript or false
+        DisableBeamScript = colorData.DisableBeamScript or false,
+        PreserveBeamColor = colorData.PreserveBeamColor or false
     }
 
     UpdateSelector()
@@ -1749,4 +1760,4 @@ if Player.Character then
     SetupCharacter(Player.Character)
 end
 
-print("[Voidscope Changer 2.3] Loaded successfully.")
+print("[Voidscope Changer 2.4] Loaded successfully.")
