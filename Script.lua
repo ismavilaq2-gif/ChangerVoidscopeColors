@@ -1,15 +1,19 @@
+
 --==================================================
--- VOIDSCOPE CHANGER 2.2
+-- VOIDSCOPE CHANGER 2.3
 -- RED + BLUE + WHITE + AQUAMARINE
 -- SCROLLABLE COLOR SELECTOR
 -- RELOADANIMATION INTEGRATED
--- SPEED SETTINGS INTERFACE
+-- SPEED SETTINGS + MOBILE TOGGLE
+-- KEYBIND ENABLE/DISABLE
+-- OLD SHIFTLOCK INTEGRATED
 -- UNIFORM BEAM COLOR SYSTEM
 --==================================================
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local SoundService = game:GetService("SoundService")
+local RunService = game:GetService("RunService")
 
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
@@ -56,6 +60,14 @@ local ReloadAnimationEnabled = false
 local SpeedToggleKey = "R"
 local AirSpeed = 250
 local SpeedEnabled = false
+local KeybindEnabled = true
+
+-- Old Shiftlock settings
+local OldShiftlockEnabled = false
+local ShiftOffset = Vector3.new(1.2, 0.8, 0)
+local NormalOffset = Vector3.new(0, 0, 0)
+local ShiftHumanoid = nil
+local ShiftConnection = nil
 
 local actionSound = Instance.new("Sound")
 actionSound.Name = "ReloadAnimationSound"
@@ -294,7 +306,6 @@ end
 
 --==================================================
 -- APPLY UNIFORM BEAM COLOR
--- SAME LOGIC FOR RED, BLUE AND AQUAMARINE
 --==================================================
 
 local function ApplyUniformBeamColor(beam, color)
@@ -303,7 +314,9 @@ local function ApplyUniformBeamColor(beam, color)
         return
     end
 
-    beam.Color = ColorSequence.new(color)
+    -- Constant color across the entire Beam.
+    -- No color gradient is introduced here.
+    beam.Color = ColorSequence.new(color, color)
 
 end
 
@@ -335,9 +348,6 @@ local function ApplyObject(object)
     for _, beam in ipairs(beams) do
 
         if beam.Parent then
-
-            -- WHITE preserves the original beam color.
-            -- RED, BLUE and AQUAMARINE use the same uniform logic.
 
             if not AppliedDesign.DisableBeamScript then
 
@@ -742,6 +752,42 @@ local NormalSpeed = 16
 local SpaceHeld = false
 local StateConnection = nil
 
+local SpeedToggleButton = nil
+local KeybindButton = nil
+local OldShiftlockButton = nil
+
+local function UpdateSpeedButton()
+
+    if not SpeedToggleButton then
+        return
+    end
+
+    if SpeedEnabled then
+        SpeedToggleButton.Text = "SPEED GLITCH: ON"
+        SpeedToggleButton.TextColor3 = Color3.fromRGB(0, 255, 0)
+    else
+        SpeedToggleButton.Text = "SPEED GLITCH: OFF"
+        SpeedToggleButton.TextColor3 = Color3.fromRGB(255, 0, 0)
+    end
+
+end
+
+local function UpdateKeybindButton()
+
+    if not KeybindButton then
+        return
+    end
+
+    if KeybindEnabled then
+        KeybindButton.Text = "KEYBIND: ON"
+        KeybindButton.TextColor3 = Color3.fromRGB(0, 255, 0)
+    else
+        KeybindButton.Text = "KEYBIND: OFF"
+        KeybindButton.TextColor3 = Color3.fromRGB(255, 0, 0)
+    end
+
+end
+
 local function CleanupSpeed()
 
     if StateConnection then
@@ -814,6 +860,97 @@ local function ToggleSpeed()
 
     end
 
+    UpdateSpeedButton()
+
+end
+
+local function ToggleKeybind()
+
+    KeybindEnabled = not KeybindEnabled
+
+    if not KeybindEnabled and SpeedEnabled then
+        ToggleSpeed()
+    end
+
+    UpdateKeybindButton()
+
+end
+
+--==================================================
+-- OLD SHIFTLOCK SYSTEM
+--==================================================
+
+local function UpdateOldShiftlockButton()
+
+    if not OldShiftlockButton then
+        return
+    end
+
+    if OldShiftlockEnabled then
+        OldShiftlockButton.Text = "OLD SHIFTLOCK: ON"
+        OldShiftlockButton.TextColor3 = Color3.fromRGB(0, 255, 0)
+    else
+        OldShiftlockButton.Text = "OLD SHIFTLOCK: OFF"
+        OldShiftlockButton.TextColor3 = Color3.fromRGB(255, 0, 0)
+    end
+
+end
+
+local function SetupShiftHumanoid(character)
+
+    ShiftHumanoid = character:WaitForChild("Humanoid")
+
+    ShiftHumanoid.CameraOffset = NormalOffset
+
+end
+
+local function ToggleOldShiftlock()
+
+    OldShiftlockEnabled = not OldShiftlockEnabled
+
+    if OldShiftlockEnabled then
+
+        if Player.Character then
+            SetupShiftHumanoid(Player.Character)
+        end
+
+        if not ShiftConnection then
+
+            ShiftConnection = RunService.RenderStepped:Connect(function()
+
+                if not OldShiftlockEnabled or not ShiftHumanoid then
+                    return
+                end
+
+                if not ShiftHumanoid.Parent then
+                    return
+                end
+
+                if UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter then
+                    ShiftHumanoid.CameraOffset = ShiftOffset
+                else
+                    ShiftHumanoid.CameraOffset = NormalOffset
+                end
+
+            end)
+
+        end
+
+    else
+
+        if ShiftConnection then
+            ShiftConnection:Disconnect()
+            ShiftConnection = nil
+        end
+
+        if ShiftHumanoid and ShiftHumanoid.Parent then
+            ShiftHumanoid.CameraOffset = NormalOffset
+        end
+
+    end
+
+    UpdateOldShiftlockButton()
+
 end
 
 --==================================================
@@ -827,8 +964,8 @@ GUI.Parent = PlayerGui
 
 local Main = Instance.new("Frame")
 Main.Name = "Main"
-Main.Size = UDim2.fromOffset(310, 485)
-Main.Position = UDim2.new(0.5, -155, 0.5, -242)
+Main.Size = UDim2.fromOffset(310, 665)
+Main.Position = UDim2.new(0.5, -155, 0.5, -332)
 Main.BackgroundColor3 = Color3.fromRGB(23, 23, 23)
 Main.BorderSizePixel = 0
 Main.Active = true
@@ -844,7 +981,7 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -80, 0, 42)
 Title.Position = UDim2.fromOffset(12, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "VOID SCOPE / CHANGER 2.2"
+Title.Text = "VOID SCOPE / CHANGER 2.3"
 Title.TextColor3 = WHITE
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 14
@@ -1193,20 +1330,20 @@ end)
 
 ReloadAnimationButton = CreateButton(
     "ReloadAnimationButton",
-    "RELOADANIMATION: ACTIVATE",
-    335,
+    "RELOADANIMATION: OFF",
+    370,
     function()
 
         ReloadAnimationEnabled = not ReloadAnimationEnabled
 
         if ReloadAnimationEnabled then
 
-            ReloadAnimationButton.Text = "RELOADANIMATION: DESACTIVATE"
+            ReloadAnimationButton.Text = "RELOADANIMATION: ON"
             ReloadAnimationButton.TextColor3 = Color3.fromRGB(0, 255, 0)
 
         else
 
-            ReloadAnimationButton.Text = "RELOADANIMATION: ACTIVATE"
+            ReloadAnimationButton.Text = "RELOADANIMATION: OFF"
             ReloadAnimationButton.TextColor3 = Color3.fromRGB(255, 0, 0)
 
         end
@@ -1224,7 +1361,7 @@ ReloadAnimationButton.TextColor3 = Color3.fromRGB(255, 0, 0)
 local SpeedTitle = Instance.new("TextLabel")
 SpeedTitle.Name = "SpeedSettingsTitle"
 SpeedTitle.Size = UDim2.new(1, -36, 0, 25)
-SpeedTitle.Position = UDim2.fromOffset(18, 385)
+SpeedTitle.Position = UDim2.fromOffset(18, 420)
 SpeedTitle.BackgroundTransparency = 1
 SpeedTitle.Text = "SPEED SETTINGS"
 SpeedTitle.TextColor3 = WHITE
@@ -1273,14 +1410,14 @@ local KeyInput = CreateSettingRow(
     "SpeedKey",
     "TOGGLE KEY",
     "R",
-    410
+    445
 )
 
 local AirSpeedInput = CreateSettingRow(
     "AirSpeed",
     "AIR SPEED",
     "250",
-    450
+    485
 )
 
 KeyInput.FocusLost:Connect(function(enterPressed)
@@ -1334,6 +1471,53 @@ AirSpeedInput.FocusLost:Connect(function(enterPressed)
     end
 
 end)
+
+--==================================================
+-- KEYBIND ON/OFF BUTTON
+--==================================================
+
+KeybindButton = CreateButton(
+    "KeybindButton",
+    "KEYBIND: ON",
+    523,
+    function()
+        ToggleKeybind()
+    end
+)
+
+KeybindButton.TextColor3 = Color3.fromRGB(0, 255, 0)
+
+--==================================================
+-- SPEED GLITCH ON/OFF BUTTON
+--==================================================
+
+SpeedToggleButton = CreateButton(
+    "SpeedToggleButton",
+    "SPEED GLITCH: OFF",
+    570,
+    function()
+        ToggleSpeed()
+    end
+)
+
+SpeedToggleButton.TextSize = 12
+SpeedToggleButton.TextColor3 = Color3.fromRGB(255, 0, 0)
+
+--==================================================
+-- OLD SHIFTLOCK ON/OFF BUTTON
+--==================================================
+
+OldShiftlockButton = CreateButton(
+    "OldShiftlockButton",
+    "OLD SHIFTLOCK: OFF",
+    617,
+    function()
+        ToggleOldShiftlock()
+    end
+)
+
+OldShiftlockButton.TextSize = 12
+OldShiftlockButton.TextColor3 = Color3.fromRGB(255, 0, 0)
 
 --==================================================
 -- MINIMIZE AND CLOSE
@@ -1399,7 +1583,7 @@ Minimize.Activated:Connect(function()
 
     Main.Size = Minimized
         and UDim2.fromOffset(310, 42)
-        or UDim2.fromOffset(310, 485)
+        or UDim2.fromOffset(310, 665)
 
 end)
 
@@ -1407,6 +1591,18 @@ Close.Activated:Connect(function()
 
     RestoreOriginal()
     CleanupSpeed()
+
+    OldShiftlockEnabled = false
+
+    if ShiftConnection then
+        ShiftConnection:Disconnect()
+        ShiftConnection = nil
+    end
+
+    if ShiftHumanoid and ShiftHumanoid.Parent then
+        ShiftHumanoid.CameraOffset = NormalOffset
+    end
+
     GUI:Destroy()
 
 end)
@@ -1431,7 +1627,10 @@ UserInputService.InputBegan:Connect(function(input, processed)
 
     local configuredKey = Enum.KeyCode[SpeedToggleKey]
 
-    if configuredKey and input.KeyCode == configuredKey then
+    if KeybindEnabled
+        and configuredKey
+        and input.KeyCode == configuredKey then
+
         ToggleSpeed()
         return
     end
@@ -1501,6 +1700,10 @@ local function SetupCharacter(character)
         SetupSpeed(character)
     end
 
+    if OldShiftlockEnabled then
+        SetupShiftHumanoid(character)
+    end
+
     character.ChildAdded:Connect(function(object)
 
         if object:IsA("Tool") then
@@ -1546,4 +1749,4 @@ if Player.Character then
     SetupCharacter(Player.Character)
 end
 
-print("[Voidscope Changer 2.2] Loaded successfully.")
+print("[Voidscope Changer 2.3] Loaded successfully.")
