@@ -1,11 +1,11 @@
 
 --==================================================
--- VOIDSCOPE CHANGER 2.4
+-- VOIDSCOPE CHANGER 2.5
 -- RED + BLUE + WHITE + AQUAMARINE
--- SCROLLABLE COLOR SELECTOR
+-- SCROLLABLE MAIN INTERFACE
 -- RELOADANIMATION INTEGRATED
--- SPEED SETTINGS + MOBILE TOGGLE
--- KEYBIND ENABLE/DISABLE
+-- ORIGINAL SPEED SYSTEM
+-- AIR BACKWARD SPEED GLITCH
 -- OLD SHIFTLOCK INTEGRATED
 -- UNIFORM BEAM COLOR SYSTEM
 -- CUSTOMBEAM SCRIPTS DISABLED FOR ALL COLORS
@@ -61,11 +61,27 @@ local COOLDOWN_DURATION = 2
 
 local ReloadAnimationEnabled = false
 
--- Speed settings
+-- Original speed settings
 local SpeedToggleKey = "R"
 local AirSpeed = 250
 local SpeedEnabled = false
 local KeybindEnabled = true
+
+-- Air backward settings
+local BackwardGlitchEnabled = false
+local BackwardGlitchSpeed = 100
+local MIN_BACKWARD_SPEED = 1
+local MAX_BACKWARD_SPEED = 1000
+local CAMERA_THRESHOLD = 0.25
+
+local BackwardHumanoid = nil
+local BackwardRootPart = nil
+local BackwardOriginalSpeed = 16
+local BackwardConnection = nil
+local BackwardUsedThisJump = false
+local BackwardWasAirborne = false
+local PreviousCameraDirection = nil
+local BackwardChangedSpeed = false
 
 -- Old Shiftlock settings
 local OldShiftlockEnabled = false
@@ -290,7 +306,6 @@ end
 
 --==================================================
 -- DISABLE ALL CUSTOMBEAM SCRIPTS
--- ALL COLORS
 --==================================================
 
 local function DisableBeamScripts(object, state)
@@ -319,9 +334,6 @@ local function ApplyUniformBeamColor(beam, color)
         return
     end
 
-    -- Constant color across the entire Beam.
-    -- No color gradient is introduced here.
-
     beam.Color = ColorSequence.new(color, color)
 
 end
@@ -344,13 +356,9 @@ local function ApplyObject(object)
 
     CaptureBeamState(object, state)
 
-    -- First disable CustomBeam scripts for every color.
     if AppliedDesign.DisableBeamScript then
         DisableBeamScripts(object, state)
     end
-
-    -- WHITE keeps its special original Beam color.
-    -- RED, BLUE and AQUAMARINE receive their uniform color.
 
     if not AppliedDesign.PreserveBeamColor then
 
@@ -463,12 +471,10 @@ local function MonitorVoidscope(tool)
 
                         CaptureBeamState(handle, state)
 
-                        -- Disable scripts added later as well.
                         if AppliedDesign.DisableBeamScript then
                             DisableBeamScripts(handle, state)
                         end
 
-                        -- WHITE preserves its special Beam behavior.
                         if not AppliedDesign.PreserveBeamColor then
 
                             local beams = GetBeams(handle)
@@ -765,6 +771,9 @@ local StateConnection = nil
 local SpeedToggleButton = nil
 local KeybindButton = nil
 local OldShiftlockButton = nil
+local BackwardGlitchButton = nil
+
+local ToggleBackwardGlitch
 
 local function UpdateSpeedButton()
 
@@ -857,6 +866,10 @@ local function ToggleSpeed()
 
     if SpeedEnabled then
 
+        if BackwardGlitchEnabled and ToggleBackwardGlitch then
+            ToggleBackwardGlitch()
+        end
+
         if Player.Character then
             SetupSpeed(Player.Character)
         end
@@ -887,6 +900,169 @@ local function ToggleKeybind()
 end
 
 --==================================================
+-- AIR BACKWARD SPEED GLITCH
+--==================================================
+
+local function UpdateBackwardGlitchButton()
+
+    if not BackwardGlitchButton then
+        return
+    end
+
+    if BackwardGlitchEnabled then
+        BackwardGlitchButton.Text = "AIR BACKWARD: ON"
+        BackwardGlitchButton.TextColor3 = Color3.fromRGB(0, 255, 0)
+    else
+        BackwardGlitchButton.Text = "AIR BACKWARD: OFF"
+        BackwardGlitchButton.TextColor3 = Color3.fromRGB(255, 0, 0)
+    end
+
+end
+
+local function CleanupBackwardGlitch()
+
+    if BackwardConnection then
+        BackwardConnection:Disconnect()
+        BackwardConnection = nil
+    end
+
+    if BackwardHumanoid and BackwardHumanoid.Parent then
+
+        if BackwardChangedSpeed then
+            BackwardHumanoid.WalkSpeed = BackwardOriginalSpeed
+        end
+
+    end
+
+    BackwardHumanoid = nil
+    BackwardRootPart = nil
+    PreviousCameraDirection = nil
+    BackwardUsedThisJump = false
+    BackwardWasAirborne = false
+    BackwardChangedSpeed = false
+
+end
+
+local function SetupBackwardGlitch(character)
+
+    CleanupBackwardGlitch()
+
+    local humanoid = character:WaitForChild("Humanoid")
+    local rootPart = character:WaitForChild("HumanoidRootPart")
+
+    BackwardHumanoid = humanoid
+    BackwardRootPart = rootPart
+    BackwardOriginalSpeed = humanoid.WalkSpeed
+
+    local camera = workspace.CurrentCamera
+
+    if camera then
+        PreviousCameraDirection = camera.CFrame.LookVector
+    end
+
+    BackwardConnection = RunService.RenderStepped:Connect(function()
+
+        if not BackwardGlitchEnabled
+            or not BackwardHumanoid
+            or not BackwardRootPart then
+
+            return
+        end
+
+        if not BackwardHumanoid.Parent
+            or not BackwardRootPart.Parent then
+
+            return
+        end
+
+        local currentCamera = workspace.CurrentCamera
+
+        if not currentCamera then
+            return
+        end
+
+        local cameraDirection = currentCamera.CFrame.LookVector
+
+        if not PreviousCameraDirection then
+            PreviousCameraDirection = cameraDirection
+            return
+        end
+
+        local cameraChange =
+            (cameraDirection - PreviousCameraDirection).Magnitude
+
+        PreviousCameraDirection = cameraDirection
+
+        local airborne =
+            BackwardHumanoid.FloorMaterial == Enum.Material.Air
+
+        if not airborne then
+
+            if BackwardWasAirborne then
+
+                if BackwardChangedSpeed then
+                    BackwardHumanoid.WalkSpeed = BackwardOriginalSpeed
+                    BackwardChangedSpeed = false
+                end
+
+            end
+
+            BackwardUsedThisJump = false
+            BackwardWasAirborne = false
+
+            return
+        end
+
+        BackwardWasAirborne = true
+
+        local movingBackward =
+            BackwardHumanoid.MoveDirection:Dot(
+                BackwardRootPart.CFrame.LookVector
+            ) < -0.1
+
+        if airborne
+            and movingBackward
+            and cameraChange >= CAMERA_THRESHOLD
+            and not BackwardUsedThisJump then
+
+            BackwardUsedThisJump = true
+            BackwardHumanoid.WalkSpeed = BackwardGlitchSpeed
+            BackwardChangedSpeed = true
+
+        end
+
+    end)
+
+end
+
+ToggleBackwardGlitch = function()
+
+    BackwardGlitchEnabled = not BackwardGlitchEnabled
+
+    if BackwardGlitchEnabled then
+
+        if SpeedEnabled then
+            ToggleSpeed()
+        end
+
+        if Player.Character then
+            SetupBackwardGlitch(Player.Character)
+        end
+
+        print("Air Backward enabled")
+
+    else
+
+        CleanupBackwardGlitch()
+        print("Air Backward disabled")
+
+    end
+
+    UpdateBackwardGlitchButton()
+
+end
+
+--==================================================
 -- OLD SHIFTLOCK SYSTEM
 --==================================================
 
@@ -909,7 +1085,6 @@ end
 local function SetupShiftHumanoid(character)
 
     ShiftHumanoid = character:WaitForChild("Humanoid")
-
     ShiftHumanoid.CameraOffset = NormalOffset
 
 end
@@ -974,24 +1149,48 @@ GUI.Parent = PlayerGui
 
 local Main = Instance.new("Frame")
 Main.Name = "Main"
-Main.Size = UDim2.fromOffset(310, 665)
-Main.Position = UDim2.new(0.5, -155, 0.5, -332)
+Main.Size = UDim2.fromOffset(310, 500)
+Main.Position = UDim2.new(0.5, -155, 0.5, -250)
 Main.BackgroundColor3 = Color3.fromRGB(23, 23, 23)
 Main.BorderSizePixel = 0
 Main.Active = true
 Main.Draggable = true
-Main.ClipsDescendants = false
+Main.ClipsDescendants = true
 Main.Parent = GUI
 
 local MainCorner = Instance.new("UICorner")
 MainCorner.CornerRadius = UDim.new(0, 10)
 MainCorner.Parent = Main
 
+--==================================================
+-- MAIN SCROLLING AREA
+--==================================================
+
+local MainScroll = Instance.new("ScrollingFrame")
+MainScroll.Name = "MainScroll"
+MainScroll.Size = UDim2.new(1, 0, 1, -42)
+MainScroll.Position = UDim2.fromOffset(0, 42)
+MainScroll.BackgroundTransparency = 1
+MainScroll.BorderSizePixel = 0
+MainScroll.CanvasSize = UDim2.new(0, 0, 0, 900)
+MainScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+MainScroll.ScrollBarThickness = 5
+MainScroll.ScrollBarImageColor3 = Color3.fromRGB(180, 180, 180)
+MainScroll.ScrollBarImageTransparency = 0.15
+MainScroll.AutomaticCanvasSize = Enum.AutomaticSize.None
+MainScroll.Parent = Main
+
+local Content = Instance.new("Frame")
+Content.Name = "Content"
+Content.Size = UDim2.new(1, 0, 0, 900)
+Content.BackgroundTransparency = 1
+Content.Parent = MainScroll
+
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -80, 0, 42)
 Title.Position = UDim2.fromOffset(12, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "VOID SCOPE / CHANGER 2.4"
+Title.Text = "VOID SCOPE / CHANGER 2.5"
 Title.TextColor3 = WHITE
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 14
@@ -1015,7 +1214,7 @@ local function CreateButton(name, text, y, callback)
     button.TextColor3 = WHITE
     button.Font = Enum.Font.GothamBold
     button.TextSize = 13
-    button.Parent = Main
+    button.Parent = Content
 
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 7)
@@ -1133,7 +1332,7 @@ DropdownButton.Position = UDim2.fromOffset(18, 205)
 DropdownButton.BackgroundTransparency = 1
 DropdownButton.Text = ""
 DropdownButton.ZIndex = 3
-DropdownButton.Parent = Main
+DropdownButton.Parent = Content
 
 local SelectedHalf = Instance.new("Frame")
 SelectedHalf.Name = "SelectedHalf"
@@ -1192,7 +1391,7 @@ DropdownMenu.ScrollBarThickness = 5
 DropdownMenu.ScrollBarImageColor3 = WHITE
 DropdownMenu.ScrollBarImageTransparency = 0.2
 DropdownMenu.AutomaticCanvasSize = Enum.AutomaticSize.None
-DropdownMenu.Parent = Main
+DropdownMenu.Parent = Content
 
 local MenuCorner = Instance.new("UICorner")
 MenuCorner.CornerRadius = UDim.new(0, 7)
@@ -1379,7 +1578,7 @@ SpeedTitle.TextColor3 = WHITE
 SpeedTitle.Font = Enum.Font.GothamBold
 SpeedTitle.TextSize = 12
 SpeedTitle.TextXAlignment = Enum.TextXAlignment.Left
-SpeedTitle.Parent = Main
+SpeedTitle.Parent = Content
 
 local function CreateSettingRow(name, labelText, defaultText, y)
 
@@ -1393,7 +1592,7 @@ local function CreateSettingRow(name, labelText, defaultText, y)
     label.Font = Enum.Font.GothamBold
     label.TextSize = 10
     label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = Main
+    label.Parent = Content
 
     local box = Instance.new("TextBox")
     box.Name = name .. "Input"
@@ -1408,7 +1607,7 @@ local function CreateSettingRow(name, labelText, defaultText, y)
     box.Font = Enum.Font.GothamBold
     box.TextSize = 12
     box.ClearTextOnFocus = false
-    box.Parent = Main
+    box.Parent = Content
 
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 6)
@@ -1499,7 +1698,7 @@ KeybindButton = CreateButton(
 KeybindButton.TextColor3 = Color3.fromRGB(0, 255, 0)
 
 --==================================================
--- SPEED GLITCH ON/OFF BUTTON
+-- ORIGINAL SPEED GLITCH BUTTON
 --==================================================
 
 SpeedToggleButton = CreateButton(
@@ -1515,7 +1714,7 @@ SpeedToggleButton.TextSize = 12
 SpeedToggleButton.TextColor3 = Color3.fromRGB(255, 0, 0)
 
 --==================================================
--- OLD SHIFTLOCK ON/OFF BUTTON
+-- OLD SHIFTLOCK BUTTON
 --==================================================
 
 OldShiftlockButton = CreateButton(
@@ -1529,6 +1728,197 @@ OldShiftlockButton = CreateButton(
 
 OldShiftlockButton.TextSize = 12
 OldShiftlockButton.TextColor3 = Color3.fromRGB(255, 0, 0)
+
+--==================================================
+-- AIR BACKWARD SETTINGS
+--==================================================
+
+local BackwardTitle = Instance.new("TextLabel")
+BackwardTitle.Name = "AirBackwardTitle"
+BackwardTitle.Size = UDim2.new(1, -36, 0, 25)
+BackwardTitle.Position = UDim2.fromOffset(18, 665)
+BackwardTitle.BackgroundTransparency = 1
+BackwardTitle.Text = "AIR BACKWARD SETTINGS"
+BackwardTitle.TextColor3 = WHITE
+BackwardTitle.Font = Enum.Font.GothamBold
+BackwardTitle.TextSize = 12
+BackwardTitle.TextXAlignment = Enum.TextXAlignment.Left
+BackwardTitle.Parent = Content
+
+BackwardGlitchButton = CreateButton(
+    "BackwardGlitchButton",
+    "AIR BACKWARD: OFF",
+    695,
+    function()
+        ToggleBackwardGlitch()
+    end
+)
+
+BackwardGlitchButton.TextSize = 12
+BackwardGlitchButton.TextColor3 = Color3.fromRGB(255, 0, 0)
+
+local BackwardSpeedLabel = Instance.new("TextLabel")
+BackwardSpeedLabel.Name = "BackwardSpeedLabel"
+BackwardSpeedLabel.Size = UDim2.fromOffset(125, 32)
+BackwardSpeedLabel.Position = UDim2.fromOffset(18, 745)
+BackwardSpeedLabel.BackgroundTransparency = 1
+BackwardSpeedLabel.Text = "BACKWARD SPEED"
+BackwardSpeedLabel.TextColor3 = WHITE
+BackwardSpeedLabel.Font = Enum.Font.GothamBold
+BackwardSpeedLabel.TextSize = 10
+BackwardSpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
+BackwardSpeedLabel.Parent = Content
+
+local BackwardSpeedInput = Instance.new("TextBox")
+BackwardSpeedInput.Name = "BackwardSpeedInput"
+BackwardSpeedInput.Size = UDim2.fromOffset(130, 32)
+BackwardSpeedInput.Position = UDim2.fromOffset(160, 745)
+BackwardSpeedInput.BackgroundColor3 = Color3.fromRGB(42, 42, 42)
+BackwardSpeedInput.BorderSizePixel = 0
+BackwardSpeedInput.Text = tostring(BackwardGlitchSpeed)
+BackwardSpeedInput.TextColor3 = WHITE
+BackwardSpeedInput.Font = Enum.Font.GothamBold
+BackwardSpeedInput.TextSize = 12
+BackwardSpeedInput.ClearTextOnFocus = false
+BackwardSpeedInput.Parent = Content
+
+local BackwardInputCorner = Instance.new("UICorner")
+BackwardInputCorner.CornerRadius = UDim.new(0, 6)
+BackwardInputCorner.Parent = BackwardSpeedInput
+
+--==================================================
+-- BACKWARD SPEED SLIDER
+--==================================================
+
+local BackwardSlider = Instance.new("Frame")
+BackwardSlider.Name = "BackwardSpeedSlider"
+BackwardSlider.Size = UDim2.new(1, -36, 0, 12)
+BackwardSlider.Position = UDim2.fromOffset(18, 795)
+BackwardSlider.BackgroundColor3 = Color3.fromRGB(65, 65, 75)
+BackwardSlider.BorderSizePixel = 0
+BackwardSlider.Parent = Content
+
+local BackwardSliderCorner = Instance.new("UICorner")
+BackwardSliderCorner.CornerRadius = UDim.new(0, 6)
+BackwardSliderCorner.Parent = BackwardSlider
+
+local BackwardFill = Instance.new("Frame")
+BackwardFill.Size = UDim2.new(
+    BackwardGlitchSpeed / MAX_BACKWARD_SPEED,
+    0,
+    1,
+    0
+)
+BackwardFill.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+BackwardFill.BorderSizePixel = 0
+BackwardFill.Parent = BackwardSlider
+
+local BackwardFillCorner = Instance.new("UICorner")
+BackwardFillCorner.CornerRadius = UDim.new(0, 6)
+BackwardFillCorner.Parent = BackwardFill
+
+local BackwardSliderButton = Instance.new("TextButton")
+BackwardSliderButton.Size = UDim2.new(1, 0, 1, 18)
+BackwardSliderButton.Position = UDim2.new(0, 0, 0, -9)
+BackwardSliderButton.BackgroundTransparency = 1
+BackwardSliderButton.Text = ""
+BackwardSliderButton.Parent = BackwardSlider
+
+local BackwardDragging = false
+
+local function UpdateBackwardSlider(x)
+
+    local percent = math.clamp(
+        (x - BackwardSlider.AbsolutePosition.X)
+        / BackwardSlider.AbsoluteSize.X,
+        0,
+        1
+    )
+
+    BackwardGlitchSpeed = math.clamp(
+        math.floor(percent * MAX_BACKWARD_SPEED),
+        MIN_BACKWARD_SPEED,
+        MAX_BACKWARD_SPEED
+    )
+
+    BackwardFill.Size = UDim2.new(
+        BackwardGlitchSpeed / MAX_BACKWARD_SPEED,
+        0,
+        1,
+        0
+    )
+
+    BackwardSpeedInput.Text = tostring(BackwardGlitchSpeed)
+
+end
+
+BackwardSliderButton.InputBegan:Connect(function(input)
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+
+        BackwardDragging = true
+        UpdateBackwardSlider(input.Position.X)
+
+    end
+
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+
+    if BackwardDragging
+        and (
+            input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch
+        ) then
+
+        UpdateBackwardSlider(input.Position.X)
+
+    end
+
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+
+        BackwardDragging = false
+
+    end
+
+end)
+
+BackwardSpeedInput.FocusLost:Connect(function(enterPressed)
+
+    local newSpeed = tonumber(BackwardSpeedInput.Text)
+
+    if enterPressed and newSpeed then
+
+        BackwardGlitchSpeed = math.clamp(
+            math.floor(newSpeed),
+            MIN_BACKWARD_SPEED,
+            MAX_BACKWARD_SPEED
+        )
+
+    end
+
+    BackwardSpeedInput.Text = tostring(BackwardGlitchSpeed)
+
+    BackwardFill.Size = UDim2.new(
+        BackwardGlitchSpeed / MAX_BACKWARD_SPEED,
+        0,
+        1,
+        0
+    )
+
+end)
+
+--==================================================
+-- UPDATE MAIN CANVAS
+--==================================================
+
+MainScroll.CanvasSize = UDim2.new(0, 0, 0, 850)
 
 --==================================================
 -- MINIMIZE AND CLOSE
@@ -1554,47 +1944,23 @@ Close.Font = Enum.Font.GothamBold
 Close.TextSize = 14
 Close.Parent = Main
 
-local SavedVisibility = {}
-
 Minimize.Activated:Connect(function()
 
     Minimized = not Minimized
 
     if Minimized then
 
-        table.clear(SavedVisibility)
-
-        for _, object in ipairs(Main:GetChildren()) do
-
-            if object ~= Title
-                and object ~= Minimize
-                and object ~= Close
-                and object ~= MainCorner then
-
-                SavedVisibility[object] = object.Visible
-                object.Visible = false
-
-            end
-
-        end
+        MainScroll.Visible = false
+        Main.Size = UDim2.fromOffset(310, 42)
+        Minimize.Text = "+"
 
     else
 
-        for object, wasVisible in pairs(SavedVisibility) do
-
-            if object and object.Parent then
-                object.Visible = wasVisible
-            end
-
-        end
-
-        table.clear(SavedVisibility)
+        MainScroll.Visible = true
+        Main.Size = UDim2.fromOffset(310, 500)
+        Minimize.Text = "-"
 
     end
-
-    Main.Size = Minimized
-        and UDim2.fromOffset(310, 42)
-        or UDim2.fromOffset(310, 665)
 
 end)
 
@@ -1602,6 +1968,10 @@ Close.Activated:Connect(function()
 
     RestoreOriginal()
     CleanupSpeed()
+    CleanupBackwardGlitch()
+
+    SpeedEnabled = false
+    BackwardGlitchEnabled = false
 
     OldShiftlockEnabled = false
 
@@ -1711,6 +2081,10 @@ local function SetupCharacter(character)
         SetupSpeed(character)
     end
 
+    if BackwardGlitchEnabled then
+        SetupBackwardGlitch(character)
+    end
+
     if OldShiftlockEnabled then
         SetupShiftHumanoid(character)
     end
@@ -1760,4 +2134,4 @@ if Player.Character then
     SetupCharacter(Player.Character)
 end
 
-print("[Voidscope Changer 2.4] Loaded successfully.")
+print("[Voidscope Changer 2.5] Loaded successfully.")
