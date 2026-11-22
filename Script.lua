@@ -1684,7 +1684,7 @@ MainScroll.Size = UDim2.new(1, 0, 1, -42)
 MainScroll.Position = UDim2.fromOffset(0, 42)
 MainScroll.BackgroundTransparency = 1
 MainScroll.BorderSizePixel = 0
-MainScroll.CanvasSize = UDim2.new(0, 0, 0, 980)
+MainScroll.CanvasSize = UDim2.new(0, 0, 0, 990)
 MainScroll.ScrollingDirection = Enum.ScrollingDirection.Y
 MainScroll.ScrollBarThickness = 5
 MainScroll.ScrollBarImageColor3 = Color3.fromRGB(180, 180, 180)
@@ -1694,7 +1694,7 @@ MainScroll.Parent = Main
 
 local Content = Instance.new("Frame")
 Content.Name = "Content"
-Content.Size = UDim2.new(1, 0, 0, 980)
+Content.Size = UDim2.new(1, 0, 0, 990)
 Content.BackgroundTransparency = 1
 Content.Parent = MainScroll
 
@@ -2824,4 +2824,112 @@ UserInputService.InputBegan:Connect(function(input, processed)
 
         if not SpeedEnabled
             or not SpeedHumanoid
-            or not SpeedRoot
+            or not SpeedRootPart then
+
+            return
+        end
+
+        if SpeedHumanoid.FloorMaterial == Enum.Material.Air then
+
+            local jumpVelocity
+
+            if SpeedHumanoid.UseJumpPower then
+
+                jumpVelocity = SpeedHumanoid.JumpPower
+
+            else
+
+                jumpVelocity = math.sqrt(
+                    2 * workspace.Gravity * SpeedHumanoid.JumpHeight
+                )
+
+            end
+
+            local velocity = SpeedRootPart.AssemblyLinearVelocity
+
+            SpeedRootPart.AssemblyLinearVelocity = Vector3.new(
+                velocity.X,
+                jumpVelocity,
+                velocity.Z
+            )
+
+        end
+
+    end
+
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+
+    if input.KeyCode == Enum.KeyCode.Space then
+        SpaceHeld = false
+    end
+
+end)
+
+--==================================================
+-- CHARACTER SETUP
+--==================================================
+
+local function SetupCharacter(character)
+
+    SetupReloadAnimation(character)
+
+    if SpeedEnabled then
+        SetupSpeed(character)
+    end
+
+    if BackwardGlitchEnabled then
+        SetupBackwardGlitch(character)
+    end
+
+    if OldShiftlockEnabled then
+        SetupShiftHumanoid(character)
+    end
+
+    character.ChildAdded:Connect(function(object)
+
+        if object:IsA("Tool") then
+
+            task.wait(0.1)
+            ConnectTool(object)
+
+        end
+
+    end)
+
+    for _, object in ipairs(character:GetChildren()) do
+
+        if object:IsA("Tool") then
+            ConnectTool(object)
+        end
+
+    end
+
+end
+
+local Backpack = Player:WaitForChild("Backpack")
+
+Backpack.ChildAdded:Connect(function(object)
+
+    if object:IsA("Tool") then
+
+        task.wait(0.1)
+        ConnectTool(object)
+
+    end
+
+end)
+
+Player.CharacterAdded:Connect(function(character)
+
+    SpaceHeld = false
+    SetupCharacter(character)
+
+end)
+
+if Player.Character then
+    SetupCharacter(Player.Character)
+end
+
+print("[Voidscope Changer 2.6] Loaded successfully.")
