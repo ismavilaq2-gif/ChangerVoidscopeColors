@@ -9,6 +9,7 @@
 -- OLD SHIFTLOCK INTEGRATED
 -- UNIFORM BEAM COLOR SYSTEM
 -- CUSTOMBEAM SCRIPTS DISABLED FOR ALL COLORS
+-- SCOPE SELECTOR (VOIDSCOPE / MATRIXSCOPE)
 --==================================================
 
 local Players = game:GetService("Players")
@@ -23,7 +24,19 @@ local PlayerGui = Player:WaitForChild("PlayerGui")
 -- CONFIGURATION
 --==================================================
 
-local ORIGINAL_ID = "rbxassetid://125806303939871"
+local SCOPES = {
+    VOIDSCOPE = {
+        Name = "VOIDSCOPE",
+        TextureId = "rbxassetid://125806303939871"
+    },
+    MATRIXSCOPE = {
+        Name = "MATRIXSCOPE",
+        TextureId = "rbxassetid://115264692533866"
+    }
+}
+
+local SelectedScope = "VOIDSCOPE"
+local ORIGINAL_ID = SCOPES[SelectedScope].TextureId
 
 local COLORS = {
     RED = {
@@ -1140,10 +1153,10 @@ local function SetupReloadAnimation(character)
 end
 
 --==================================================
--- DETECT VOIDSCOPE
+-- DETECT SCOPE (VOIDSCOPE / MATRIXSCOPE)
 --==================================================
 
-local function DetectVoidscope()
+local function DetectScope()
 
     local foundGun = false
     local displayCount = 0
@@ -1185,6 +1198,53 @@ local function DetectVoidscope()
     displayCount = #displays
 
     return foundGun, displayCount
+end
+
+local function SetActiveScope(scopeName)
+
+    local scopeData = SCOPES[scopeName]
+    if not scopeData then
+        return
+    end
+
+    SelectedScope = scopeName
+    ORIGINAL_ID = scopeData.TextureId
+
+    table.clear(VerifiedObjects)
+
+    local character = Player.Character
+    local backpack = Player:FindFirstChildOfClass("Backpack")
+
+    if character then
+        for _, object in ipairs(character:GetChildren()) do
+            if VerifyGun(object) then
+                MonitorVoidscope(object)
+                if DesignEnabled and AppliedDesign then
+                    ApplyGun(object)
+                end
+            end
+        end
+    end
+
+    if backpack then
+        for _, object in ipairs(backpack:GetChildren()) do
+            if VerifyGun(object) then
+                MonitorVoidscope(object)
+                if DesignEnabled and AppliedDesign then
+                    ApplyGun(object)
+                end
+            end
+        end
+    end
+
+    if DesignEnabled and AppliedDesign then
+        ApplyDisplays()
+    end
+
+    if WhitePlasticEnabled then
+        UpdateWhitePlastic()
+    end
+
 end
 
 --==================================================
@@ -1624,7 +1684,7 @@ MainScroll.Size = UDim2.new(1, 0, 1, -42)
 MainScroll.Position = UDim2.fromOffset(0, 42)
 MainScroll.BackgroundTransparency = 1
 MainScroll.BorderSizePixel = 0
-MainScroll.CanvasSize = UDim2.new(0, 0, 0, 900)
+MainScroll.CanvasSize = UDim2.new(0, 0, 0, 980)
 MainScroll.ScrollingDirection = Enum.ScrollingDirection.Y
 MainScroll.ScrollBarThickness = 5
 MainScroll.ScrollBarImageColor3 = Color3.fromRGB(180, 180, 180)
@@ -1634,7 +1694,7 @@ MainScroll.Parent = Main
 
 local Content = Instance.new("Frame")
 Content.Name = "Content"
-Content.Size = UDim2.new(1, 0, 0, 900)
+Content.Size = UDim2.new(1, 0, 0, 980)
 Content.BackgroundTransparency = 1
 Content.Parent = MainScroll
 
@@ -1683,33 +1743,293 @@ local RestoreButton
 local ReloadAnimationButton
 
 --==================================================
--- DETECT BUTTON
+-- DETECT BUTTON + SCOPE DROPDOWN
 --==================================================
+
+local SCOPE_MENU_OPEN_HEIGHT = 80
+local SCOPE_SHIFT_Y = SCOPE_MENU_OPEN_HEIGHT + 8
+
+local ScopeDropdownButton = Instance.new("TextButton")
+local ScopeSelectedHalf = Instance.new("Frame")
+local ScopeBlackHalf = Instance.new("Frame")
+local ScopeSelectorText = Instance.new("TextLabel")
+local ScopeDropdownMenu = Instance.new("ScrollingFrame")
+
+local ApplyButtonY = 195
+local RestoreButtonY = 245
+local ColorDropdownY = 300
+local ColorMenuY = 345
+local ReloadButtonY = 465
+local SpeedTitleY = 515
+local KeyInputY = 540
+local AirSpeedY = 580
+local KeybindButtonY = 618
+local SpeedToggleButtonY = 665
+local OldShiftlockButtonY = 712
+local BackwardTitleY = 760
+local BackwardGlitchButtonY = 790
+local BackwardSpeedRowY = 840
+local BackwardSliderY = 890
+local WhitePlasticButtonY = 930
+local BASE_CANVAS_HEIGHT = 990
+
+local function UpdateScopeSelector(isOpen)
+    local arrow = isOpen and "  ▲" or "  ▼"
+    ScopeSelectedHalf.BackgroundColor3 = SelectedScope == "MATRIXSCOPE"
+        and Color3.fromRGB(0, 170, 255)
+        or Color3.fromRGB(90, 45, 160)
+    ScopeSelectorText.Text = "SCOPE: " .. SelectedScope .. arrow
+end
+
+local function RefreshMenuLayout()
+    local scopeOpen = ScopeDropdownMenu.Visible
+    local shift = scopeOpen and SCOPE_SHIFT_Y or 0
+
+    ApplyButton.Position = UDim2.fromOffset(18, ApplyButtonY + shift)
+    RestoreButton.Position = UDim2.fromOffset(18, RestoreButtonY + shift)
+
+    local colorDropdown = Content:FindFirstChild("ColorSelector")
+    local colorMenu = Content:FindFirstChild("ColorOptions")
+    if colorDropdown then
+        colorDropdown.Position = UDim2.fromOffset(18, ColorDropdownY + shift)
+    end
+    if colorMenu then
+        colorMenu.Position = UDim2.fromOffset(18, ColorMenuY + shift)
+    end
+
+    if ReloadAnimationButton then
+        ReloadAnimationButton.Position = UDim2.fromOffset(18, ReloadButtonY + shift)
+    end
+
+    local speedTitle = Content:FindFirstChild("SpeedSettingsTitle")
+    if speedTitle then
+        speedTitle.Position = UDim2.fromOffset(18, SpeedTitleY + shift)
+    end
+
+    local speedKeyLabel = Content:FindFirstChild("SpeedKeyLabel")
+    local speedKeyInput = Content:FindFirstChild("SpeedKeyInput")
+    if speedKeyLabel then
+        speedKeyLabel.Position = UDim2.fromOffset(18, KeyInputY + shift)
+    end
+    if speedKeyInput then
+        speedKeyInput.Position = UDim2.fromOffset(160, KeyInputY + shift)
+    end
+
+    local airSpeedLabel = Content:FindFirstChild("AirSpeedLabel")
+    local airSpeedInput = Content:FindFirstChild("AirSpeedInput")
+    if airSpeedLabel then
+        airSpeedLabel.Position = UDim2.fromOffset(18, AirSpeedY + shift)
+    end
+    if airSpeedInput then
+        airSpeedInput.Position = UDim2.fromOffset(160, AirSpeedY + shift)
+    end
+
+    if KeybindButton then
+        KeybindButton.Position = UDim2.fromOffset(18, KeybindButtonY + shift)
+    end
+    if SpeedToggleButton then
+        SpeedToggleButton.Position = UDim2.fromOffset(18, SpeedToggleButtonY + shift)
+    end
+    if OldShiftlockButton then
+        OldShiftlockButton.Position = UDim2.fromOffset(18, OldShiftlockButtonY + shift)
+    end
+
+    local backwardTitle = Content:FindFirstChild("AirBackwardTitle")
+    if backwardTitle then
+        backwardTitle.Position = UDim2.fromOffset(18, BackwardTitleY + shift)
+    end
+    if BackwardGlitchButton then
+        BackwardGlitchButton.Position = UDim2.fromOffset(18, BackwardGlitchButtonY + shift)
+    end
+
+    local backwardSpeedLabel = Content:FindFirstChild("BackwardSpeedLabel")
+    local backwardSpeedInput = Content:FindFirstChild("BackwardSpeedInput")
+    if backwardSpeedLabel then
+        backwardSpeedLabel.Position = UDim2.fromOffset(18, BackwardSpeedRowY + shift)
+    end
+    if backwardSpeedInput then
+        backwardSpeedInput.Position = UDim2.fromOffset(160, BackwardSpeedRowY + shift)
+    end
+
+    local backwardSlider = Content:FindFirstChild("BackwardSpeedSlider")
+    if backwardSlider then
+        backwardSlider.Position = UDim2.fromOffset(18, BackwardSliderY + shift)
+    end
+
+    if WhitePlasticButton then
+        WhitePlasticButton.Position = UDim2.fromOffset(18, WhitePlasticButtonY + shift)
+    end
+
+    local totalHeight = BASE_CANVAS_HEIGHT + shift
+    Content.Size = UDim2.new(1, 0, 0, totalHeight)
+    MainScroll.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
+end
 
 DetectButton = CreateButton(
     "DetectButton",
-    "DETECT VOIDSCOPE",
+    "DETECT",
     50,
     function()
 
-        local found, displays = DetectVoidscope()
+        local found, displays = DetectScope()
 
         if found or displays > 0 then
-            DetectButton.Text = "VOIDSCOPE DETECTED"
+            DetectButton.Text = SelectedScope .. " DETECTED"
         else
-            DetectButton.Text = "VOIDSCOPE NOT FOUND"
+            DetectButton.Text = SelectedScope .. " NOT FOUND"
         end
 
         task.delay(2, function()
 
             if DetectButton.Parent then
-                DetectButton.Text = "DETECT VOIDSCOPE"
+                DetectButton.Text = "DETECT"
             end
 
         end)
 
     end
 )
+
+ScopeDropdownButton.Name = "ScopeSelector"
+ScopeDropdownButton.Size = UDim2.new(1, -36, 0, 42)
+ScopeDropdownButton.Position = UDim2.fromOffset(18, 100)
+ScopeDropdownButton.BackgroundTransparency = 1
+ScopeDropdownButton.Text = ""
+ScopeDropdownButton.ZIndex = 3
+ScopeDropdownButton.Parent = Content
+
+ScopeSelectedHalf.Name = "SelectedHalf"
+ScopeSelectedHalf.Size = UDim2.new(0.5, 0, 1, 0)
+ScopeSelectedHalf.BackgroundColor3 = Color3.fromRGB(90, 45, 160)
+ScopeSelectedHalf.BorderSizePixel = 0
+ScopeSelectedHalf.ZIndex = 2
+ScopeSelectedHalf.Parent = ScopeDropdownButton
+
+ScopeBlackHalf.Name = "BlackHalf"
+ScopeBlackHalf.Size = UDim2.new(0.5, 0, 1, 0)
+ScopeBlackHalf.Position = UDim2.new(0.5, 0, 0, 0)
+ScopeBlackHalf.BackgroundColor3 = BLACK
+ScopeBlackHalf.BorderSizePixel = 0
+ScopeBlackHalf.ZIndex = 2
+ScopeBlackHalf.Parent = ScopeDropdownButton
+
+local ScopeSelectorCorner = Instance.new("UICorner")
+ScopeSelectorCorner.CornerRadius = UDim.new(0, 7)
+ScopeSelectorCorner.Parent = ScopeDropdownButton
+
+local ScopeHalfCorner = Instance.new("UICorner")
+ScopeHalfCorner.CornerRadius = UDim.new(0, 7)
+ScopeHalfCorner.Parent = ScopeSelectedHalf
+
+local ScopeBlackCorner = Instance.new("UICorner")
+ScopeBlackCorner.CornerRadius = UDim.new(0, 7)
+ScopeBlackCorner.Parent = ScopeBlackHalf
+
+ScopeSelectorText.Size = UDim2.new(1, 0, 1, 0)
+ScopeSelectorText.BackgroundTransparency = 1
+ScopeSelectorText.Text = "SCOPE: VOIDSCOPE  ▼"
+ScopeSelectorText.TextColor3 = WHITE
+ScopeSelectorText.Font = Enum.Font.GothamBold
+ScopeSelectorText.TextSize = 12
+ScopeSelectorText.ZIndex = 4
+ScopeSelectorText.Parent = ScopeDropdownButton
+
+ScopeDropdownMenu.Name = "ScopeOptions"
+ScopeDropdownMenu.Size = UDim2.new(1, -36, 0, SCOPE_MENU_OPEN_HEIGHT)
+ScopeDropdownMenu.Position = UDim2.fromOffset(18, 145)
+ScopeDropdownMenu.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+ScopeDropdownMenu.BorderSizePixel = 0
+ScopeDropdownMenu.Visible = false
+ScopeDropdownMenu.ZIndex = 10
+ScopeDropdownMenu.CanvasSize = UDim2.new(0, 0, 0, 0)
+ScopeDropdownMenu.ScrollingDirection = Enum.ScrollingDirection.Y
+ScopeDropdownMenu.ScrollBarThickness = 5
+ScopeDropdownMenu.ScrollBarImageColor3 = WHITE
+ScopeDropdownMenu.ScrollBarImageTransparency = 0.2
+ScopeDropdownMenu.AutomaticCanvasSize = Enum.AutomaticSize.None
+ScopeDropdownMenu.Parent = Content
+
+local ScopeMenuCorner = Instance.new("UICorner")
+ScopeMenuCorner.CornerRadius = UDim.new(0, 7)
+ScopeMenuCorner.Parent = ScopeDropdownMenu
+
+local ScopeMenuPadding = Instance.new("UIPadding")
+ScopeMenuPadding.PaddingTop = UDim.new(0, 4)
+ScopeMenuPadding.PaddingBottom = UDim.new(0, 4)
+ScopeMenuPadding.PaddingLeft = UDim.new(0, 4)
+ScopeMenuPadding.PaddingRight = UDim.new(0, 4)
+ScopeMenuPadding.Parent = ScopeDropdownMenu
+
+local ScopeMenuLayout = Instance.new("UIListLayout")
+ScopeMenuLayout.FillDirection = Enum.FillDirection.Vertical
+ScopeMenuLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ScopeMenuLayout.Padding = UDim.new(0, 4)
+ScopeMenuLayout.Parent = ScopeDropdownMenu
+
+local function CreateScopeOption(scopeName, accentColor, order)
+
+    local option = Instance.new("TextButton")
+    option.Name = scopeName .. "Option"
+    option.Size = UDim2.new(1, -8, 0, 32)
+    option.LayoutOrder = order
+    option.BackgroundColor3 = Color3.fromRGB(42, 42, 42)
+    option.BorderSizePixel = 0
+    option.Text = ""
+    option.ZIndex = 11
+    option.Parent = ScopeDropdownMenu
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 5)
+    corner.Parent = option
+
+    local colorSquare = Instance.new("Frame")
+    colorSquare.Size = UDim2.fromOffset(18, 18)
+    colorSquare.Position = UDim2.fromOffset(9, 7)
+    colorSquare.BackgroundColor3 = accentColor
+    colorSquare.BorderSizePixel = 0
+    colorSquare.ZIndex = 12
+    colorSquare.Parent = option
+
+    local squareCorner = Instance.new("UICorner")
+    squareCorner.CornerRadius = UDim.new(0, 4)
+    squareCorner.Parent = colorSquare
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -42, 1, 0)
+    label.Position = UDim2.fromOffset(36, 0)
+    label.BackgroundTransparency = 1
+    label.Text = scopeName
+    label.TextColor3 = WHITE
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 12
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.ZIndex = 12
+    label.Parent = option
+
+    option.Activated:Connect(function()
+        SetActiveScope(scopeName)
+        ScopeDropdownMenu.Visible = false
+        UpdateScopeSelector(false)
+        RefreshMenuLayout()
+    end)
+
+end
+
+CreateScopeOption("VOIDSCOPE", Color3.fromRGB(90, 45, 160), 1)
+CreateScopeOption("MATRIXSCOPE", Color3.fromRGB(0, 170, 255), 2)
+
+ScopeDropdownMenu.CanvasSize = UDim2.new(
+    0,
+    0,
+    0,
+    ScopeMenuLayout.AbsoluteContentSize.Y + 8
+)
+
+ScopeDropdownButton.Activated:Connect(function()
+    ScopeDropdownMenu.Visible = not ScopeDropdownMenu.Visible
+    UpdateScopeSelector(ScopeDropdownMenu.Visible)
+    RefreshMenuLayout()
+end)
 
 --==================================================
 -- APPLY TEXTURE BUTTON
@@ -1718,7 +2038,7 @@ DetectButton = CreateButton(
 ApplyButton = CreateButton(
     "ApplyButton",
     "APPLY TEXTURE",
-    100,
+    ApplyButtonY,
     function()
 
         local success, count, reason = ApplyDesign()
@@ -1733,7 +2053,7 @@ ApplyButton = CreateButton(
 
         else
 
-            ApplyButton.Text = "VOIDSCOPE NOT FOUND"
+            ApplyButton.Text = SelectedScope .. " NOT FOUND"
 
         end
 
@@ -1755,7 +2075,7 @@ ApplyButton = CreateButton(
 RestoreButton = CreateButton(
     "RestoreButton",
     "RESTORE ORIGINAL",
-    150,
+    RestoreButtonY,
     function()
 
         RestoreOriginal()
@@ -1780,7 +2100,7 @@ RestoreButton = CreateButton(
 local DropdownButton = Instance.new("TextButton")
 DropdownButton.Name = "ColorSelector"
 DropdownButton.Size = UDim2.new(1, -36, 0, 42)
-DropdownButton.Position = UDim2.fromOffset(18, 205)
+DropdownButton.Position = UDim2.fromOffset(18, ColorDropdownY)
 DropdownButton.BackgroundTransparency = 1
 DropdownButton.Text = ""
 DropdownButton.ZIndex = 3
@@ -1832,7 +2152,7 @@ SelectorText.Parent = DropdownButton
 local DropdownMenu = Instance.new("ScrollingFrame")
 DropdownMenu.Name = "ColorOptions"
 DropdownMenu.Size = UDim2.new(1, -36, 0, 112)
-DropdownMenu.Position = UDim2.fromOffset(18, 250)
+DropdownMenu.Position = UDim2.fromOffset(18, ColorMenuY)
 DropdownMenu.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 DropdownMenu.BorderSizePixel = 0
 DropdownMenu.Visible = false
@@ -2001,7 +2321,7 @@ end)
 ReloadAnimationButton = CreateButton(
     "ReloadAnimationButton",
     "RELOADANIMATION: OFF",
-    370,
+    ReloadButtonY,
     function()
 
         ReloadAnimationEnabled = not ReloadAnimationEnabled
@@ -2031,7 +2351,7 @@ ReloadAnimationButton.TextColor3 = Color3.fromRGB(255, 0, 0)
 local SpeedTitle = Instance.new("TextLabel")
 SpeedTitle.Name = "SpeedSettingsTitle"
 SpeedTitle.Size = UDim2.new(1, -36, 0, 25)
-SpeedTitle.Position = UDim2.fromOffset(18, 420)
+SpeedTitle.Position = UDim2.fromOffset(18, SpeedTitleY)
 SpeedTitle.BackgroundTransparency = 1
 SpeedTitle.Text = "SPEED SETTINGS"
 SpeedTitle.TextColor3 = WHITE
@@ -2080,14 +2400,14 @@ local KeyInput = CreateSettingRow(
     "SpeedKey",
     "TOGGLE KEY",
     "R",
-    445
+    KeyInputY
 )
 
 local AirSpeedInput = CreateSettingRow(
     "AirSpeed",
     "AIR SPEED",
     "250",
-    485
+    AirSpeedY
 )
 
 KeyInput.FocusLost:Connect(function(enterPressed)
@@ -2149,7 +2469,7 @@ end)
 KeybindButton = CreateButton(
     "KeybindButton",
     "KEYBIND: ON",
-    523,
+    KeybindButtonY,
     function()
         ToggleKeybind()
     end
@@ -2164,7 +2484,7 @@ KeybindButton.TextColor3 = Color3.fromRGB(0, 255, 0)
 SpeedToggleButton = CreateButton(
     "SpeedToggleButton",
     "SPEED GLITCH: OFF",
-    570,
+    SpeedToggleButtonY,
     function()
         ToggleSpeed()
     end
@@ -2180,7 +2500,7 @@ SpeedToggleButton.TextColor3 = Color3.fromRGB(255, 0, 0)
 OldShiftlockButton = CreateButton(
     "OldShiftlockButton",
     "OLD SHIFTLOCK: OFF",
-    617,
+    OldShiftlockButtonY,
     function()
         ToggleOldShiftlock()
     end
@@ -2196,7 +2516,7 @@ OldShiftlockButton.TextColor3 = Color3.fromRGB(255, 0, 0)
 local BackwardTitle = Instance.new("TextLabel")
 BackwardTitle.Name = "AirBackwardTitle"
 BackwardTitle.Size = UDim2.new(1, -36, 0, 25)
-BackwardTitle.Position = UDim2.fromOffset(18, 665)
+BackwardTitle.Position = UDim2.fromOffset(18, BackwardTitleY)
 BackwardTitle.BackgroundTransparency = 1
 BackwardTitle.Text = "AIR BACKWARD SETTINGS"
 BackwardTitle.TextColor3 = WHITE
@@ -2208,7 +2528,7 @@ BackwardTitle.Parent = Content
 BackwardGlitchButton = CreateButton(
     "BackwardGlitchButton",
     "AIR BACKWARD: OFF",
-    695,
+    BackwardGlitchButtonY,
     function()
         ToggleBackwardGlitch()
     end
@@ -2220,7 +2540,7 @@ BackwardGlitchButton.TextColor3 = Color3.fromRGB(255, 0, 0)
 local BackwardSpeedLabel = Instance.new("TextLabel")
 BackwardSpeedLabel.Name = "BackwardSpeedLabel"
 BackwardSpeedLabel.Size = UDim2.fromOffset(125, 32)
-BackwardSpeedLabel.Position = UDim2.fromOffset(18, 745)
+BackwardSpeedLabel.Position = UDim2.fromOffset(18, BackwardSpeedRowY)
 BackwardSpeedLabel.BackgroundTransparency = 1
 BackwardSpeedLabel.Text = "BACKWARD SPEED"
 BackwardSpeedLabel.TextColor3 = WHITE
@@ -2232,7 +2552,7 @@ BackwardSpeedLabel.Parent = Content
 local BackwardSpeedInput = Instance.new("TextBox")
 BackwardSpeedInput.Name = "BackwardSpeedInput"
 BackwardSpeedInput.Size = UDim2.fromOffset(130, 32)
-BackwardSpeedInput.Position = UDim2.fromOffset(160, 745)
+BackwardSpeedInput.Position = UDim2.fromOffset(160, BackwardSpeedRowY)
 BackwardSpeedInput.BackgroundColor3 = Color3.fromRGB(42, 42, 42)
 BackwardSpeedInput.BorderSizePixel = 0
 BackwardSpeedInput.Text = tostring(BackwardGlitchSpeed)
@@ -2253,7 +2573,7 @@ BackwardInputCorner.Parent = BackwardSpeedInput
 local BackwardSlider = Instance.new("Frame")
 BackwardSlider.Name = "BackwardSpeedSlider"
 BackwardSlider.Size = UDim2.new(1, -36, 0, 12)
-BackwardSlider.Position = UDim2.fromOffset(18, 795)
+BackwardSlider.Position = UDim2.fromOffset(18, BackwardSliderY)
 BackwardSlider.BackgroundColor3 = Color3.fromRGB(65, 65, 75)
 BackwardSlider.BorderSizePixel = 0
 BackwardSlider.Parent = Content
@@ -2381,7 +2701,7 @@ end)
 WhitePlasticButton = CreateButton(
     "WhitePlasticButton",
     "WHITE PLASTIC GUN: OFF",
-    835,
+    WhitePlasticButtonY,
     function()
         ToggleWhitePlastic()
     end
@@ -2396,8 +2716,7 @@ UpdateWhitePlasticButton()
 -- UPDATE MAIN CANVAS
 --==================================================
 
-Content.Size = UDim2.new(1, 0, 0, 900)
-MainScroll.CanvasSize = UDim2.new(0, 0, 0, 900)
+RefreshMenuLayout()
 
 --==================================================
 -- MINIMIZE AND CLOSE
@@ -2505,112 +2824,4 @@ UserInputService.InputBegan:Connect(function(input, processed)
 
         if not SpeedEnabled
             or not SpeedHumanoid
-            or not SpeedRootPart then
-
-            return
-        end
-
-        if SpeedHumanoid.FloorMaterial == Enum.Material.Air then
-
-            local jumpVelocity
-
-            if SpeedHumanoid.UseJumpPower then
-
-                jumpVelocity = SpeedHumanoid.JumpPower
-
-            else
-
-                jumpVelocity = math.sqrt(
-                    2 * workspace.Gravity * SpeedHumanoid.JumpHeight
-                )
-
-            end
-
-            local velocity = SpeedRootPart.AssemblyLinearVelocity
-
-            SpeedRootPart.AssemblyLinearVelocity = Vector3.new(
-                velocity.X,
-                jumpVelocity,
-                velocity.Z
-            )
-
-        end
-
-    end
-
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-
-    if input.KeyCode == Enum.KeyCode.Space then
-        SpaceHeld = false
-    end
-
-end)
-
---==================================================
--- CHARACTER SETUP
---==================================================
-
-local function SetupCharacter(character)
-
-    SetupReloadAnimation(character)
-
-    if SpeedEnabled then
-        SetupSpeed(character)
-    end
-
-    if BackwardGlitchEnabled then
-        SetupBackwardGlitch(character)
-    end
-
-    if OldShiftlockEnabled then
-        SetupShiftHumanoid(character)
-    end
-
-    character.ChildAdded:Connect(function(object)
-
-        if object:IsA("Tool") then
-
-            task.wait(0.1)
-            ConnectTool(object)
-
-        end
-
-    end)
-
-    for _, object in ipairs(character:GetChildren()) do
-
-        if object:IsA("Tool") then
-            ConnectTool(object)
-        end
-
-    end
-
-end
-
-local Backpack = Player:WaitForChild("Backpack")
-
-Backpack.ChildAdded:Connect(function(object)
-
-    if object:IsA("Tool") then
-
-        task.wait(0.1)
-        ConnectTool(object)
-
-    end
-
-end)
-
-Player.CharacterAdded:Connect(function(character)
-
-    SpaceHeld = false
-    SetupCharacter(character)
-
-end)
-
-if Player.Character then
-    SetupCharacter(Player.Character)
-end
-
-print("[Voidscope Changer 2.6] Loaded successfully.")
+            or not SpeedRoot
