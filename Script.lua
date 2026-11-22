@@ -27,11 +27,13 @@ local PlayerGui = Player:WaitForChild("PlayerGui")
 local SCOPES = {
     VOIDSCOPE = {
         Name = "VOIDSCOPE",
-        TextureId = "rbxassetid://125806303939871"
+        TextureId = "rbxassetid://125806303939871",
+        MenuColor = Color3.fromRGB(130, 130, 130)
     },
     MATRIXSCOPE = {
         Name = "MATRIXSCOPE",
-        TextureId = "rbxassetid://115264692533866"
+        TextureId = "rbxassetid://115264692533866",
+        MenuColor = Color3.fromRGB(0, 200, 90)
     }
 }
 
@@ -1775,9 +1777,8 @@ local BASE_CANVAS_HEIGHT = 990
 
 local function UpdateScopeSelector(isOpen)
     local arrow = isOpen and "  ▲" or "  ▼"
-    ScopeSelectedHalf.BackgroundColor3 = SelectedScope == "MATRIXSCOPE"
-        and Color3.fromRGB(0, 170, 255)
-        or Color3.fromRGB(90, 45, 160)
+    local scopeData = SCOPES[SelectedScope]
+    ScopeSelectedHalf.BackgroundColor3 = scopeData and scopeData.MenuColor or Color3.fromRGB(130, 130, 130)
     ScopeSelectorText.Text = "SCOPE: " .. SelectedScope .. arrow
 end
 
@@ -1900,7 +1901,7 @@ ScopeDropdownButton.Parent = Content
 
 ScopeSelectedHalf.Name = "SelectedHalf"
 ScopeSelectedHalf.Size = UDim2.new(0.5, 0, 1, 0)
-ScopeSelectedHalf.BackgroundColor3 = Color3.fromRGB(90, 45, 160)
+ScopeSelectedHalf.BackgroundColor3 = SCOPES.VOIDSCOPE.MenuColor
 ScopeSelectedHalf.BorderSizePixel = 0
 ScopeSelectedHalf.ZIndex = 2
 ScopeSelectedHalf.Parent = ScopeDropdownButton
@@ -1966,7 +1967,10 @@ ScopeMenuLayout.SortOrder = Enum.SortOrder.LayoutOrder
 ScopeMenuLayout.Padding = UDim.new(0, 4)
 ScopeMenuLayout.Parent = ScopeDropdownMenu
 
-local function CreateScopeOption(scopeName, accentColor, order)
+local function CreateScopeOption(scopeName, order)
+
+    local data = SCOPES[scopeName]
+    local accentColor = data and data.MenuColor or Color3.fromRGB(130, 130, 130)
 
     local option = Instance.new("TextButton")
     option.Name = scopeName .. "Option"
@@ -2015,8 +2019,8 @@ local function CreateScopeOption(scopeName, accentColor, order)
 
 end
 
-CreateScopeOption("VOIDSCOPE", Color3.fromRGB(90, 45, 160), 1)
-CreateScopeOption("MATRIXSCOPE", Color3.fromRGB(0, 170, 255), 2)
+CreateScopeOption("VOIDSCOPE", 1)
+CreateScopeOption("MATRIXSCOPE", 2)
 
 ScopeDropdownMenu.CanvasSize = UDim2.new(
     0,
