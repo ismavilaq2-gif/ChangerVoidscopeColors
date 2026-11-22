@@ -1,6 +1,6 @@
 --==================================================
 -- VOIDSCOPE CHANGER 2.6
--- RED + BLUE + WHITE + AQUAMARINE
+-- RED + BLUE + WHITE + AQUAMARINE + NEW COLORS
 -- WHITE PLASTIC GUN INTEGRATED
 -- SCROLLABLE MAIN INTERFACE
 -- RELOADANIMATION INTEGRATED
@@ -48,6 +48,54 @@ local COLORS = {
     AQUAMARINE = {
         Texture = "rbxassetid://118286314935916",
         Color = Color3.fromRGB(127, 255, 212),
+        DisableBeamScript = true
+    },
+
+    DARK_BLUE = {
+        Texture = "rbxassetid://135557446714129",
+        Color = Color3.fromRGB(16, 43, 99),
+        DisableBeamScript = true
+    },
+
+    LIGHT_PINK = {
+        Texture = "rbxassetid://76296142295658",
+        Color = Color3.fromRGB(247, 182, 210),
+        DisableBeamScript = true
+    },
+
+    LIGHT_BLUE = {
+        Texture = "rbxassetid://86452393442703",
+        Color = Color3.fromRGB(135, 206, 250),
+        DisableBeamScript = true
+    },
+
+    FOREST_GREEN = {
+        Texture = "rbxassetid://122652485385373",
+        Color = Color3.fromRGB(20, 83, 45),
+        DisableBeamScript = true
+    },
+
+    PINK = {
+        Texture = "rbxassetid://94064058591379",
+        Color = Color3.fromRGB(255, 105, 180),
+        DisableBeamScript = true
+    },
+
+    FUCHSIA = {
+        Texture = "rbxassetid://79322010219289",
+        Color = Color3.fromRGB(255, 0, 255),
+        DisableBeamScript = true
+    },
+
+    VIVID_LIGHT_GREEN = {
+        Texture = "rbxassetid://94440027009198",
+        Color = Color3.fromRGB(124, 252, 0),
+        DisableBeamScript = true
+    },
+
+    DARK_BURGUNDY = {
+        Texture = "rbxassetid://119300256162924",
+        Color = Color3.fromRGB(75, 16, 28),
         DisableBeamScript = true
     }
 }
@@ -1917,6 +1965,14 @@ CreateColorOption("RED", 1)
 CreateColorOption("BLUE", 2)
 CreateColorOption("WHITE", 3)
 CreateColorOption("AQUAMARINE", 4)
+CreateColorOption("DARK_BLUE", 5)
+CreateColorOption("LIGHT_PINK", 6)
+CreateColorOption("LIGHT_BLUE", 7)
+CreateColorOption("FOREST_GREEN", 8)
+CreateColorOption("PINK", 9)
+CreateColorOption("FUCHSIA", 10)
+CreateColorOption("VIVID_LIGHT_GREEN", 11)
+CreateColorOption("DARK_BURGUNDY", 12)
 
 UpdateCanvasSize()
 
