@@ -1752,8 +1752,6 @@ local SCOPE_MENU_OPEN_HEIGHT = 80
 local SCOPE_SHIFT_Y = SCOPE_MENU_OPEN_HEIGHT + 8
 
 local ScopeDropdownButton = Instance.new("TextButton")
-local ScopeSelectedHalf = Instance.new("Frame")
-local ScopeBlackHalf = Instance.new("Frame")
 local ScopeSelectorText = Instance.new("TextLabel")
 local ScopeDropdownMenu = Instance.new("ScrollingFrame")
 
@@ -1778,7 +1776,7 @@ local BASE_CANVAS_HEIGHT = 990
 local function UpdateScopeSelector(isOpen)
     local arrow = isOpen and "  ▲" or "  ▼"
     local scopeData = SCOPES[SelectedScope]
-    ScopeSelectedHalf.BackgroundColor3 = scopeData and scopeData.MenuColor or Color3.fromRGB(130, 130, 130)
+    ScopeDropdownButton.BackgroundColor3 = scopeData and scopeData.MenuColor or Color3.fromRGB(130, 130, 130)
     ScopeSelectorText.Text = "SCOPE: " .. SelectedScope .. arrow
 end
 
@@ -1894,37 +1892,15 @@ DetectButton = CreateButton(
 ScopeDropdownButton.Name = "ScopeSelector"
 ScopeDropdownButton.Size = UDim2.new(1, -36, 0, 42)
 ScopeDropdownButton.Position = UDim2.fromOffset(18, 100)
-ScopeDropdownButton.BackgroundTransparency = 1
+ScopeDropdownButton.BackgroundColor3 = SCOPES.VOIDSCOPE.MenuColor
+ScopeDropdownButton.BorderSizePixel = 0
 ScopeDropdownButton.Text = ""
 ScopeDropdownButton.ZIndex = 3
 ScopeDropdownButton.Parent = Content
 
-ScopeSelectedHalf.Name = "SelectedHalf"
-ScopeSelectedHalf.Size = UDim2.new(0.5, 0, 1, 0)
-ScopeSelectedHalf.BackgroundColor3 = SCOPES.VOIDSCOPE.MenuColor
-ScopeSelectedHalf.BorderSizePixel = 0
-ScopeSelectedHalf.ZIndex = 2
-ScopeSelectedHalf.Parent = ScopeDropdownButton
-
-ScopeBlackHalf.Name = "BlackHalf"
-ScopeBlackHalf.Size = UDim2.new(0.5, 0, 1, 0)
-ScopeBlackHalf.Position = UDim2.new(0.5, 0, 0, 0)
-ScopeBlackHalf.BackgroundColor3 = BLACK
-ScopeBlackHalf.BorderSizePixel = 0
-ScopeBlackHalf.ZIndex = 2
-ScopeBlackHalf.Parent = ScopeDropdownButton
-
 local ScopeSelectorCorner = Instance.new("UICorner")
 ScopeSelectorCorner.CornerRadius = UDim.new(0, 7)
 ScopeSelectorCorner.Parent = ScopeDropdownButton
-
-local ScopeHalfCorner = Instance.new("UICorner")
-ScopeHalfCorner.CornerRadius = UDim.new(0, 7)
-ScopeHalfCorner.Parent = ScopeSelectedHalf
-
-local ScopeBlackCorner = Instance.new("UICorner")
-ScopeBlackCorner.CornerRadius = UDim.new(0, 7)
-ScopeBlackCorner.Parent = ScopeBlackHalf
 
 ScopeSelectorText.Size = UDim2.new(1, 0, 1, 0)
 ScopeSelectorText.BackgroundTransparency = 1
@@ -1970,13 +1946,13 @@ ScopeMenuLayout.Parent = ScopeDropdownMenu
 local function CreateScopeOption(scopeName, order)
 
     local data = SCOPES[scopeName]
-    local accentColor = data and data.MenuColor or Color3.fromRGB(130, 130, 130)
+    local menuColor = data and data.MenuColor or Color3.fromRGB(130, 130, 130)
 
     local option = Instance.new("TextButton")
     option.Name = scopeName .. "Option"
     option.Size = UDim2.new(1, -8, 0, 32)
     option.LayoutOrder = order
-    option.BackgroundColor3 = Color3.fromRGB(42, 42, 42)
+    option.BackgroundColor3 = menuColor
     option.BorderSizePixel = 0
     option.Text = ""
     option.ZIndex = 11
@@ -1986,21 +1962,9 @@ local function CreateScopeOption(scopeName, order)
     corner.CornerRadius = UDim.new(0, 5)
     corner.Parent = option
 
-    local colorSquare = Instance.new("Frame")
-    colorSquare.Size = UDim2.fromOffset(18, 18)
-    colorSquare.Position = UDim2.fromOffset(9, 7)
-    colorSquare.BackgroundColor3 = accentColor
-    colorSquare.BorderSizePixel = 0
-    colorSquare.ZIndex = 12
-    colorSquare.Parent = option
-
-    local squareCorner = Instance.new("UICorner")
-    squareCorner.CornerRadius = UDim.new(0, 4)
-    squareCorner.Parent = colorSquare
-
     local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -42, 1, 0)
-    label.Position = UDim2.fromOffset(36, 0)
+    label.Size = UDim2.new(1, -16, 1, 0)
+    label.Position = UDim2.fromOffset(12, 0)
     label.BackgroundTransparency = 1
     label.Text = scopeName
     label.TextColor3 = WHITE
