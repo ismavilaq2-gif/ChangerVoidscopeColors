@@ -77,6 +77,13 @@ local COLORS = {
         DisableBeamScript = true
     },
 
+    MATTE_DARK_BLUE = {
+        Texture = "rbxassetid://135557446714129",
+        Color = Color3.fromRGB(16, 43, 99),
+        BeamColor = Color3.fromRGB(16, 43, 99),
+        DisableBeamScript = true
+    },
+
     LIGHT_PINK = {
         Texture = "rbxassetid://76296142295658",
         Color = Color3.fromRGB(247, 182, 210),
@@ -2297,17 +2304,18 @@ CreateColorOption("DARK_BLUE", 2)
 CreateColorOption("BLUE", 3)
 CreateColorOption("WHITE", 4)
 CreateColorOption("AQUAMARINE", 5)
-CreateColorOption("LIGHT_PINK", 6)
-CreateColorOption("LIGHT_BLUE", 7)
-CreateColorOption("FOREST_GREEN", 8)
-CreateColorOption("PINK", 9)
-CreateColorOption("FUCHSIA", 10)
-CreateColorOption("VIVID_LIGHT_GREEN", 11)
-CreateColorOption("DARK_BURGUNDY", 12)
-CreateColorOption("LIGHT_PURPLE", 13)
-CreateColorOption("PURPLE", 14)
-CreateColorOption("BROWN", 15)
-CreateColorOption("LIGHT_BROWN", 16)
+CreateColorOption("MATTE_DARK_BLUE", 6)
+CreateColorOption("LIGHT_PINK", 7)
+CreateColorOption("LIGHT_BLUE", 8)
+CreateColorOption("FOREST_GREEN", 9)
+CreateColorOption("PINK", 10)
+CreateColorOption("FUCHSIA", 11)
+CreateColorOption("VIVID_LIGHT_GREEN", 12)
+CreateColorOption("DARK_BURGUNDY", 13)
+CreateColorOption("LIGHT_PURPLE", 14)
+CreateColorOption("PURPLE", 15)
+CreateColorOption("BROWN", 16)
+CreateColorOption("LIGHT_BROWN", 17)
 
 UpdateCanvasSize()
 
