@@ -48,10 +48,17 @@ local COLORS = {
         DisableBeamScript = true
     },
 
-    BLUE = {
+    DARK_BLUE = {
         Texture = "rbxassetid://116708828152021",
         Color = Color3.fromRGB(0, 45, 160),
         BeamColor = Color3.fromRGB(0, 45, 160),
+        DisableBeamScript = true
+    },
+
+    BLUE = {
+        Texture = "rbxassetid://103806035089697",
+        Color = Color3.fromRGB(0, 120, 255),
+        BeamColor = Color3.fromRGB(0, 120, 255),
         DisableBeamScript = true
     },
 
@@ -67,13 +74,6 @@ local COLORS = {
         Texture = "rbxassetid://118286314935916",
         Color = Color3.fromRGB(127, 255, 212),
         BeamColor = Color3.fromRGB(127, 255, 212),
-        DisableBeamScript = true
-    },
-
-    DARK_BLUE = {
-        Texture = "rbxassetid://135557446714129",
-        Color = Color3.fromRGB(16, 43, 99),
-        BeamColor = Color3.fromRGB(16, 43, 99),
         DisableBeamScript = true
     },
 
@@ -2293,10 +2293,10 @@ local function CreateColorOption(colorName, order)
 end
 
 CreateColorOption("RED", 1)
-CreateColorOption("BLUE", 2)
-CreateColorOption("WHITE", 3)
-CreateColorOption("AQUAMARINE", 4)
-CreateColorOption("DARK_BLUE", 5)
+CreateColorOption("DARK_BLUE", 2)
+CreateColorOption("BLUE", 3)
+CreateColorOption("WHITE", 4)
+CreateColorOption("AQUAMARINE", 5)
 CreateColorOption("LIGHT_PINK", 6)
 CreateColorOption("LIGHT_BLUE", 7)
 CreateColorOption("FOREST_GREEN", 8)
