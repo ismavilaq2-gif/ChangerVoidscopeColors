@@ -44,18 +44,21 @@ local COLORS = {
     RED = {
         Texture = "rbxassetid://79908965595599",
         Color = Color3.fromRGB(255, 0, 0),
+        BeamColor = Color3.fromRGB(255, 0, 0),
         DisableBeamScript = true
     },
 
     BLUE = {
         Texture = "rbxassetid://116708828152021",
         Color = Color3.fromRGB(0, 45, 160),
+        BeamColor = Color3.fromRGB(0, 45, 160),
         DisableBeamScript = true
     },
 
     WHITE = {
         Texture = "rbxassetid://126161683645981",
         Color = Color3.fromRGB(255, 255, 255),
+        BeamColor = Color3.fromRGB(255, 255, 255),
         DisableBeamScript = true,
         PreserveBeamColor = true
     },
@@ -63,54 +66,91 @@ local COLORS = {
     AQUAMARINE = {
         Texture = "rbxassetid://118286314935916",
         Color = Color3.fromRGB(127, 255, 212),
+        BeamColor = Color3.fromRGB(127, 255, 212),
         DisableBeamScript = true
     },
 
     DARK_BLUE = {
         Texture = "rbxassetid://135557446714129",
         Color = Color3.fromRGB(16, 43, 99),
+        BeamColor = Color3.fromRGB(16, 43, 99),
         DisableBeamScript = true
     },
 
     LIGHT_PINK = {
         Texture = "rbxassetid://76296142295658",
         Color = Color3.fromRGB(247, 182, 210),
+        BeamColor = Color3.fromRGB(247, 182, 210),
         DisableBeamScript = true
     },
 
     LIGHT_BLUE = {
         Texture = "rbxassetid://86452393442703",
         Color = Color3.fromRGB(135, 206, 250),
+        BeamColor = Color3.fromRGB(135, 206, 250),
         DisableBeamScript = true
     },
 
     FOREST_GREEN = {
         Texture = "rbxassetid://122652485385373",
         Color = Color3.fromRGB(20, 83, 45),
+        BeamColor = Color3.fromRGB(20, 83, 45),
         DisableBeamScript = true
     },
 
     PINK = {
         Texture = "rbxassetid://94064058591379",
         Color = Color3.fromRGB(255, 105, 180),
+        BeamColor = Color3.fromRGB(255, 105, 180),
         DisableBeamScript = true
     },
 
     FUCHSIA = {
         Texture = "rbxassetid://79322010219289",
         Color = Color3.fromRGB(255, 0, 255),
+        BeamColor = Color3.fromRGB(255, 0, 255),
         DisableBeamScript = true
     },
 
     VIVID_LIGHT_GREEN = {
         Texture = "rbxassetid://94440027009198",
         Color = Color3.fromRGB(124, 252, 0),
+        BeamColor = Color3.fromRGB(124, 252, 0),
         DisableBeamScript = true
     },
 
     DARK_BURGUNDY = {
         Texture = "rbxassetid://119300256162924",
         Color = Color3.fromRGB(75, 16, 28),
+        BeamColor = Color3.fromRGB(75, 16, 28),
+        DisableBeamScript = true
+    },
+
+    LIGHT_PURPLE = {
+        Texture = "rbxassetid://89069301887727",
+        Color = Color3.fromRGB(190, 130, 255),
+        BeamColor = Color3.fromRGB(190, 130, 255),
+        DisableBeamScript = true
+    },
+
+    PURPLE = {
+        Texture = "rbxassetid://132594158672222",
+        Color = Color3.fromRGB(128, 0, 255),
+        BeamColor = Color3.fromRGB(128, 0, 255),
+        DisableBeamScript = true
+    },
+
+    BROWN = {
+        Texture = "rbxassetid://76233638702174",
+        Color = Color3.fromRGB(120, 65, 25),
+        BeamColor = Color3.fromRGB(120, 65, 25),
+        DisableBeamScript = true
+    },
+
+    LIGHT_BROWN = {
+        Texture = "rbxassetid://126072621246861",
+        Color = Color3.fromRGB(185, 130, 85),
+        BeamColor = Color3.fromRGB(185, 130, 85),
         DisableBeamScript = true
     }
 }
@@ -454,6 +494,7 @@ local function ApplyObject(object)
 
     if not AppliedDesign.PreserveBeamColor then
 
+        local beamColor = AppliedDesign.BeamColor or AppliedDesign.Color
         local beams = GetBeams(object)
 
         for _, beam in ipairs(beams) do
@@ -462,7 +503,7 @@ local function ApplyObject(object)
 
                 ApplyUniformBeamColor(
                     beam,
-                    AppliedDesign.Color
+                    beamColor
                 )
 
             end
@@ -937,6 +978,7 @@ local function MonitorVoidscope(tool)
 
                         if not AppliedDesign.PreserveBeamColor then
 
+                            local beamColor = AppliedDesign.BeamColor or AppliedDesign.Color
                             local beams = GetBeams(handle)
 
                             for _, beam in ipairs(beams) do
@@ -945,7 +987,7 @@ local function MonitorVoidscope(tool)
 
                                     ApplyUniformBeamColor(
                                         beam,
-                                        AppliedDesign.Color
+                                        beamColor
                                     )
 
                                 end
@@ -2192,6 +2234,7 @@ local function SelectColor(colorName)
         Name = colorName,
         Texture = colorData.Texture,
         Color = colorData.Color,
+        BeamColor = colorData.BeamColor or colorData.Color,
         DisableBeamScript = colorData.DisableBeamScript or false,
         PreserveBeamColor = colorData.PreserveBeamColor or false
     }
@@ -2261,6 +2304,10 @@ CreateColorOption("PINK", 9)
 CreateColorOption("FUCHSIA", 10)
 CreateColorOption("VIVID_LIGHT_GREEN", 11)
 CreateColorOption("DARK_BURGUNDY", 12)
+CreateColorOption("LIGHT_PURPLE", 13)
+CreateColorOption("PURPLE", 14)
+CreateColorOption("BROWN", 15)
+CreateColorOption("LIGHT_BROWN", 16)
 
 UpdateCanvasSize()
 
