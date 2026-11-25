@@ -1,7 +1,7 @@
 --==================================================
 -- VOIDSCOPE CHANGER 2.6
 -- RED + BLUE + WHITE + AQUAMARINE + NEW COLORS
--- PLASTIC GUN (GUN TOOL + GUNDISPLAY) INTEGRATED
+-- WHITE PLASTIC GUN 2.2 (0.5 TRANSPARENCY + RESTORE)
 -- SCROLLABLE MAIN INTERFACE
 -- RELOADANIMATION INTEGRATED
 -- ORIGINAL SPEED SYSTEM
@@ -200,17 +200,17 @@ local NormalOffset = Vector3.new(0, 0, 0)
 local ShiftHumanoid = nil
 local ShiftConnection = nil
 
--- WHITE PLASTIC CONFIGURATION
+-- WHITE PLASTIC GUN 2.2 CONFIGURATION
 local WHITE_PLASTIC_CONFIG = {
     Color = Color3.fromRGB(255, 255, 255),
     Transparency = 0.5,
     Material = Enum.Material.Plastic,
-    UpdateInterval = 0.2
+    UpdateInterval = 0.25
 }
 
 local WhitePlasticEnabled = false
 local WhitePlasticLastUpdate = 0
-local WhitePlasticSavedParts = {}
+local WhitePlasticBackups = {}
 local WhitePlasticButton = nil
 
 local actionSound = Instance.new("Sound")
@@ -559,146 +559,200 @@ local function ApplyDisplays()
 end
 
 --==================================================
--- PLASTIC GUN SYSTEM (GUN TOOL + GUNDISPLAY)
+-- WHITE PLASTIC GUN 2.2 (BACKUP + APPLY + RESTORE)
 --==================================================
 
-local function CollectBaseParts(root, outParts)
+local function ensurePlasticBackup(part)
 
-    if not root then
-        return
+    if WhitePlasticBackups[part] then
+        return WhitePlasticBackups[part]
     end
 
-    for _, desc in ipairs(root:GetDescendants()) do
+    local savedItems = {}
 
-        if desc:IsA("BasePart") then
-            table.insert(outParts, desc)
-        end
+    for _, item in ipairs(part:GetDescendants()) do
 
-    end
+        if item:IsA("SurfaceAppearance")
+            or item:IsA("Decal")
+            or item:IsA("Texture") then
 
-end
-
-local function GetPlasticTargets()
-
-    local parts = {}
-    local character = Player.Character
-
-    if character then
-
-        for _, child in ipairs(character:GetChildren()) do
-
-            if child:IsA("Tool") and child.Name == TARGET_TOOL_NAME then
-                CollectBaseParts(child, parts)
-            end
-
-        end
-
-    end
-
-    local folder = workspace:FindFirstChild("WeaponDisplays")
-
-    if folder then
-
-        for _, desc in ipairs(folder:GetDescendants()) do
-
-            if desc.Name == "GunDisplay" then
-
-                if desc:IsA("BasePart") then
-                    table.insert(parts, desc)
-                end
-
-                CollectBaseParts(desc, parts)
-
-            end
-
-        end
-
-    end
-
-    return parts
-end
-
-local function ApplyPlasticToPart(part)
-
-    if not part or not part.Parent or not part:IsA("BasePart") then
-        return
-    end
-
-    if WhitePlasticSavedParts[part] then
-        return
-    end
-
-    local savedAppearances = {}
-
-    for _, child in ipairs(part:GetChildren()) do
-
-        if child:IsA("SurfaceAppearance") then
-
-            local ok, copy = pcall(function()
-                return child:Clone()
+            local ok, clone = pcall(function()
+                return item:Clone()
             end)
 
-            if ok and copy then
-                table.insert(savedAppearances, copy)
+            if ok and clone then
+                table.insert(savedItems, {
+                    Parent = item.Parent,
+                    Clone = clone
+                })
             end
-
-            child:Destroy()
 
         end
 
     end
 
-    WhitePlasticSavedParts[part] = {
+    local customBeam = part:FindFirstChild("CustomBeam", true)
+    local originalBeamColor = nil
+
+    if customBeam and customBeam:IsA("Beam") then
+        originalBeamColor = customBeam.Color
+    end
+
+    local backup = {
         Color = part.Color,
         Material = part.Material,
         MaterialVariant = part.MaterialVariant,
         Transparency = part.Transparency,
         TextureID = part:IsA("MeshPart") and part.TextureID or nil,
-        Appearances = savedAppearances
+        CustomBeam = (customBeam and customBeam:IsA("Beam")) and customBeam or nil,
+        BeamColor = originalBeamColor,
+        SavedItems = savedItems
     }
 
-    part.Color = WHITE_PLASTIC_CONFIG.Color
-    part.Material = WHITE_PLASTIC_CONFIG.Material
-    part.MaterialVariant = ""
-    part.Transparency = WHITE_PLASTIC_CONFIG.Transparency
+    WhitePlasticBackups[part] = backup
+    return backup
+end
 
-    if part:IsA("MeshPart") then
-        part.TextureID = ""
+local function removePlasticAppearance(object)
+
+    for _, item in ipairs(object:GetDescendants()) do
+
+        if item:IsA("SurfaceAppearance") then
+            item:Destroy()
+
+        elseif item:IsA("Decal") or item:IsA("Texture") then
+            item:Destroy()
+        end
+
+    end
+
+    if object:IsA("MeshPart") then
+        object.TextureID = ""
     end
 
 end
 
-local function RestorePlasticPart(part, saved)
+local function applyPlasticCustomBeam(handle)
 
-    if not saved then
+    local customBeam = handle:FindFirstChild("CustomBeam", true)
+
+    if not customBeam or not customBeam:IsA("Beam") then
+        return
+    end
+
+    customBeam.Color = ColorSequence.new(
+        WHITE_PLASTIC_CONFIG.Color
+    )
+
+end
+
+local function applyPlasticHandle(handle)
+
+    if not handle:IsA("MeshPart") then
+        return
+    end
+
+    ensurePlasticBackup(handle)
+    removePlasticAppearance(handle)
+
+    handle.Color = WHITE_PLASTIC_CONFIG.Color
+    handle.Material = WHITE_PLASTIC_CONFIG.Material
+    handle.MaterialVariant = ""
+    handle.Transparency = WHITE_PLASTIC_CONFIG.Transparency
+
+    applyPlasticCustomBeam(handle)
+
+end
+
+local function applyPlasticDisplay(display)
+
+    if not display:IsA("BasePart") then
+        return
+    end
+
+    ensurePlasticBackup(display)
+    removePlasticAppearance(display)
+
+    display.Color = WHITE_PLASTIC_CONFIG.Color
+    display.Material = WHITE_PLASTIC_CONFIG.Material
+    display.Transparency = WHITE_PLASTIC_CONFIG.Transparency
+
+end
+
+local function findNearestPlasticDisplay(character)
+
+    local root = character:FindFirstChild("HumanoidRootPart")
+
+    if not root then
+        return nil
+    end
+
+    local folder = workspace:FindFirstChild("WeaponDisplays")
+
+    if not folder then
+        return nil
+    end
+
+    local nearest = nil
+    local shortestDistance = math.huge
+
+    for _, object in ipairs(folder:GetDescendants()) do
+
+        if object.Name == "GunDisplay"
+            and object:IsA("BasePart") then
+
+            local distance =
+                (object.Position - root.Position).Magnitude
+
+            if distance < shortestDistance then
+                shortestDistance = distance
+                nearest = object
+            end
+
+        end
+
+    end
+
+    return nearest
+end
+
+local function restorePlasticPart(part, backup)
+
+    if not backup then
         return
     end
 
     if part and part.Parent then
 
-        part.Color = saved.Color
-        part.Material = saved.Material
-        part.MaterialVariant = saved.MaterialVariant
-        part.Transparency = saved.Transparency
+        part.Color = backup.Color
+        part.Material = backup.Material
+        part.MaterialVariant = backup.MaterialVariant
+        part.Transparency = backup.Transparency
 
-        if part:IsA("MeshPart") and saved.TextureID ~= nil then
-            part.TextureID = saved.TextureID
+        if part:IsA("MeshPart") and backup.TextureID ~= nil then
+            part.TextureID = backup.TextureID
         end
 
-        for _, copy in ipairs(saved.Appearances) do
+        for _, entry in ipairs(backup.SavedItems) do
 
-            if copy then
-                copy.Parent = part
+            if entry.Parent and entry.Parent.Parent and entry.Clone then
+                entry.Clone.Parent = entry.Parent
+            elseif entry.Clone then
+                entry.Clone:Destroy()
             end
 
+        end
+
+        if backup.CustomBeam and backup.CustomBeam.Parent and backup.BeamColor then
+            backup.CustomBeam.Color = backup.BeamColor
         end
 
     else
 
-        for _, copy in ipairs(saved.Appearances) do
+        for _, entry in ipairs(backup.SavedItems) do
 
-            if copy then
-                copy:Destroy()
+            if entry.Clone then
+                entry.Clone:Destroy()
             end
 
         end
@@ -707,34 +761,57 @@ local function RestorePlasticPart(part, saved)
 
 end
 
-local function RestoreAllPlasticParts()
+local function restoreAllWhitePlastic()
 
-    for part, saved in pairs(WhitePlasticSavedParts) do
-        RestorePlasticPart(part, saved)
-        WhitePlasticSavedParts[part] = nil
+    for part, backup in pairs(WhitePlasticBackups) do
+        restorePlasticPart(part, backup)
+        WhitePlasticBackups[part] = nil
     end
 
 end
 
-local function UpdateWhitePlastic()
+local function updateWhitePlastic()
 
     if not WhitePlasticEnabled then
         return
     end
 
-    local currentParts = {}
-    local parts = GetPlasticTargets()
+    local character = Player.Character
 
-    for _, part in ipairs(parts) do
-        currentParts[part] = true
-        ApplyPlasticToPart(part)
+    if not character then
+        return
     end
 
-    for part, saved in pairs(WhitePlasticSavedParts) do
+    local activeParts = {}
 
-        if not currentParts[part] then
-            RestorePlasticPart(part, saved)
-            WhitePlasticSavedParts[part] = nil
+    -- Only modify equipped Gun
+    local gun = character:FindFirstChild(TARGET_TOOL_NAME)
+
+    if gun and gun:IsA("Tool") then
+
+        local handle = gun:FindFirstChild("Handle")
+
+        if handle then
+            activeParts[handle] = true
+            applyPlasticHandle(handle)
+        end
+
+    end
+
+    -- Find nearest GunDisplay
+    local display = findNearestPlasticDisplay(character)
+
+    if display then
+        activeParts[display] = true
+        applyPlasticDisplay(display)
+    end
+
+    -- Restore any previous target that is no longer active
+    for part, backup in pairs(WhitePlasticBackups) do
+
+        if not activeParts[part] then
+            restorePlasticPart(part, backup)
+            WhitePlasticBackups[part] = nil
         end
 
     end
@@ -762,9 +839,9 @@ local function ToggleWhitePlastic()
     WhitePlasticEnabled = not WhitePlasticEnabled
 
     if WhitePlasticEnabled then
-        UpdateWhitePlastic()
+        updateWhitePlastic()
     else
-        RestoreAllPlasticParts()
+        restoreAllWhitePlastic()
     end
 
     UpdateWhitePlasticButton()
@@ -782,7 +859,8 @@ RunService.Heartbeat:Connect(function()
     end
 
     WhitePlasticLastUpdate = os.clock()
-    UpdateWhitePlastic()
+
+    updateWhitePlastic()
 
 end)
 
@@ -2621,7 +2699,7 @@ end)
 Close.Activated:Connect(function()
 
     WhitePlasticEnabled = false
-    RestoreAllPlasticParts()
+    restoreAllWhitePlastic()
     UpdateWhitePlasticButton()
 
     RestoreOriginal()
