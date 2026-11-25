@@ -1,7 +1,7 @@
 --==================================================
 -- VOIDSCOPE CHANGER 2.6
 -- RED + BLUE + WHITE + AQUAMARINE + NEW COLORS
--- UNIVERSAL PLASTIC GUN INTEGRATED
+-- PLASTIC GUN (GUN TOOL + GUNDISPLAY) INTEGRATED
 -- SCROLLABLE MAIN INTERFACE
 -- RELOADANIMATION INTEGRATED
 -- ORIGINAL SPEED SYSTEM
@@ -559,27 +559,55 @@ local function ApplyDisplays()
 end
 
 --==================================================
--- UNIVERSAL PLASTIC GUN SYSTEM
+-- PLASTIC GUN SYSTEM (GUN TOOL + GUNDISPLAY)
 --==================================================
 
-local function GetEquippedToolParts()
+local function CollectBaseParts(root, outParts)
+
+    if not root then
+        return
+    end
+
+    for _, desc in ipairs(root:GetDescendants()) do
+
+        if desc:IsA("BasePart") then
+            table.insert(outParts, desc)
+        end
+
+    end
+
+end
+
+local function GetPlasticTargets()
 
     local parts = {}
     local character = Player.Character
 
-    if not character then
-        return parts
+    if character then
+
+        for _, child in ipairs(character:GetChildren()) do
+
+            if child:IsA("Tool") and child.Name == TARGET_TOOL_NAME then
+                CollectBaseParts(child, parts)
+            end
+
+        end
+
     end
 
-    for _, child in ipairs(character:GetChildren()) do
+    local folder = workspace:FindFirstChild("WeaponDisplays")
 
-        if child:IsA("Tool") then
+    if folder then
 
-            for _, desc in ipairs(child:GetDescendants()) do
+        for _, desc in ipairs(folder:GetDescendants()) do
+
+            if desc.Name == "GunDisplay" then
 
                 if desc:IsA("BasePart") then
                     table.insert(parts, desc)
                 end
+
+                CollectBaseParts(desc, parts)
 
             end
 
@@ -695,7 +723,7 @@ local function UpdateWhitePlastic()
     end
 
     local currentParts = {}
-    local parts = GetEquippedToolParts()
+    local parts = GetPlasticTargets()
 
     for _, part in ipairs(parts) do
         currentParts[part] = true
